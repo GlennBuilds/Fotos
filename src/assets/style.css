@@ -296,3 +296,14 @@ html:not(.show-counts) .badges { display: none; }
 .lb-likers .none { color: rgba(242,239,232,.5); }
 .owner-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .owner-head .back { background: none; cursor: pointer; font: inherit; font-size: .92rem; }
+
+/* beheerknop met belletje (alleen eigenaar) */
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.owner-btn { position: relative; display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); font-size: .92rem; color: var(--ink-2); transition: background .2s; }
+.owner-btn:hover { background: var(--surface-2); color: var(--ink); }
+.owner-btn svg { width: 18px; height: 18px; }
+.page-home .owner-btn { color: #fff; border-color: rgba(255,255,255,.35); background: rgba(0,0,0,.18); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.owner-btn .dot { position: absolute; top: -5px; right: -5px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--heart); color: #fff; font: 700 .72rem/20px var(--sans); font-style: normal; text-align: center; box-shadow: 0 0 0 2px var(--bg); }
+.page-home .owner-btn .dot { box-shadow: none; }
+@media (max-width: 560px) { .owner-btn span { display: none; } .owner-btn { padding: 8px 10px; } .back span { display: none; } .back { padding: 8px 10px; } }
+.new { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px; background: var(--heart); color: #fff; font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px; }

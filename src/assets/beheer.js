@@ -14,6 +14,14 @@
   const ub64 = (s) => { s = s.replace(/-/g, "+").replace(/_/g, "/"); s += "=".repeat((4 - (s.length % 4)) % 4); return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); };
   let token = store.get("fa_owner");
 
+  // Beginscherm-app: bij het opstarten naar de albums gaan; beheer open je via de knop.
+  const isStandalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  let started = null;
+  try { started = sessionStorage.getItem("fa_started"); sessionStorage.setItem("fa_started", "1"); } catch (e) { started = "1"; }
+  if (isStandalone && !started && token && !document.referrer && !location.hash) { location.replace("../"); return; }
+
+  const prevSeen = Number(store.get("fa_seen")) || 0;
+
   async function api(path, opts = {}) {
     const headers = {};
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -116,13 +124,13 @@
         return `<section class="owner-card"><h3><a href="../album/${esc(album)}/">${esc(d.titles[album] || album)}</a><small>${total} likes</small></h3>
           <ul class="people">${rows.map((r) => {
             const fotos = String(r.fotos || "").split(",").filter(Boolean).sort((a, b) => a - b);
-            return `<li><div class="who"><b>${esc(r.wie)}</b>${r.wie === "Anoniem" ? `<span class="muted"> · toestel ${esc(r.toestel)}</span>` : ""}<span class="muted"> · ${r.likes} ${r.likes === 1 ? "like" : "likes"} · ${ago(r.laatst)}</span></div>
+            return `<li><div class="who">${r.laatst > prevSeen && prevSeen ? '<span class="new">Nieuw</span>' : ""}<b>${esc(r.wie)}</b>${r.wie === "Anoniem" ? `<span class="muted"> · toestel ${esc(r.toestel)}</span>` : ""}<span class="muted"> · ${r.likes} ${r.likes === 1 ? "like" : "likes"} · ${ago(r.laatst)}</span></div>
               <div class="fotos">${fotos.map((f) => `<a href="../album/${esc(album)}/#${esc(f)}">${esc(f)}</a>`).join("")}</div></li>`;
           }).join("")}</ul></section>`;
       }).join("") || `<p class="muted">Nog geen likes.</p>`;
       const comHtml = d.comments.length ? `<ul class="comments">${d.comments.map((c) => {
         const id = c.photo.split("/")[1];
-        return `<li><div class="who"><b>${esc(c.name)}</b><span class="muted"> · ${ago(c.created)} · <a href="../album/${esc(c.album)}/#${esc(id)}">${esc(d.titles[c.album] || c.album)}, foto ${esc(id)}</a></span></div><p>${esc(c.text)}</p></li>`;
+        return `<li><div class="who">${c.created > prevSeen && prevSeen ? '<span class="new">Nieuw</span>' : ""}<b>${esc(c.name)}</b><span class="muted"> · ${ago(c.created)} · <a href="../album/${esc(c.album)}/#${esc(id)}">${esc(d.titles[c.album] || c.album)}, foto ${esc(id)}</a></span></div><p>${esc(c.text)}</p></li>`;
       }).join("")}</ul>` : `<p class="muted">Nog geen reacties.</p>`;
       // per foto: wie heeft geliket (meeste likes eerst)
       const perPhoto = {};
@@ -136,6 +144,7 @@
           <div><b>${p.names.length} ${p.names.length === 1 ? "like" : "likes"}</b><span class="muted"> · ${esc(d.titles[p.album] || p.album)}, foto ${esc(p.id)}</span>
           <div class="names">${p.names.map(esc).join(", ")}</div></div></li>`).join("")}</ul>` : `<p class="muted">Nog geen likes.</p>`;
       box.innerHTML = `<h2>Per foto</h2>${photoHtml}<h2>Per persoon</h2>${likeHtml}<h2>Reacties</h2>${comHtml}`;
+      store.set("fa_seen", String(Date.now()));
     } catch (err) { box.innerHTML = `<p class="err">${esc(err.message)}</p>`; if (!token) render(); }
   }
 

@@ -423,6 +423,38 @@
     }
   }
 
+  /* ------------------------------------------------------------ beheerknop (alleen op gekoppeld toestel van Glenn) */
+  function initOwnerBar() {
+    const token = store.get("fa_owner");
+    const bar = $(".topbar-in");
+    if (!token || !API || !bar) return;
+    const root = document.body.classList.contains("page-album") ? "../../" : "";
+    const right = document.createElement("div");
+    right.className = "top-actions";
+    const back = $(".back", bar);
+    if (back) right.append(back);
+    const a = document.createElement("a");
+    a.className = "owner-btn";
+    a.href = `${root}beheer/`;
+    a.setAttribute("aria-label", "Beheer");
+    a.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16zM10 20.5a2 2 0 0 0 4 0"/></svg><span>Beheer</span><i class="dot" hidden></i>`;
+    right.append(a);
+    bar.append(right);
+    const since = store.get("fa_seen") || "0";
+    fetch(`${API}/owner/activity?since=${encodeURIComponent(since)}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        const n = (d.likes || 0) + (d.comments || 0);
+        const dot = $(".dot", a);
+        dot.hidden = n === 0;
+        dot.textContent = n > 99 ? "99+" : String(n);
+        a.setAttribute("aria-label", n ? `Beheer, ${n} nieuw` : "Beheer");
+      })
+      .catch(() => {});
+  }
+  initOwnerBar();
+
   if (document.body.classList.contains("page-home")) initHome();
   if (document.body.classList.contains("page-album")) initAlbum();
 })();

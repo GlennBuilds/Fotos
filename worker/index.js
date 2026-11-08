@@ -219,6 +219,14 @@ export default {
         if (req.method === "POST" && (route === "/test" || route === "/test-notify")) {
           return json(200, await notify(env, { title: "✅ Meldingen staan aan", message: "Je krijgt nu een melding bij nieuwe likes en reacties.", click: env.SITE_URL, tag: "test" }));
         }
+        if (req.method === "GET" && route === "/activity") {
+          const since = Number(q.get("since")) || 0;
+          const [l, c] = await db.batch([
+            db.prepare("SELECT COUNT(*) AS n FROM likes WHERE created>?").bind(since),
+            db.prepare("SELECT COUNT(*) AS n FROM comments WHERE created>? AND hidden=0").bind(since),
+          ]);
+          return json(200, { likes: l.results[0].n, comments: c.results[0].n });
+        }
         if (req.method === "GET" && route === "/overview") {
           const [l, c] = await db.batch([
             db.prepare("SELECT l.album, COALESCE(c.name, 'Anoniem') AS wie, l.client, COUNT(*) AS likes, MAX(l.created) AS laatst, " +

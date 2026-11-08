@@ -56,6 +56,13 @@ class Handler(SimpleHTTPRequestHandler):
             com = dict(self.db.execute("SELECT photo, COUNT(*) FROM comments WHERE album=? AND hidden=0 GROUP BY photo", (album,)))
             mine = [r[0] for r in self.db.execute("SELECT photo FROM likes WHERE album=? AND client=?", (album, client))]
             return self.send_json(200, {"likes": likes, "comments": com, "mine": mine})
+        if route == "/owner/activity":
+            if self.headers.get("Authorization") != "Bearer dev-token":
+                return self.send_json(401, {"error": "Geen toegang"})
+            since = int(q.get("since", "0") or 0)
+            l = self.db.execute("SELECT COUNT(*) FROM likes WHERE created>?", (since,)).fetchone()[0]
+            c = self.db.execute("SELECT COUNT(*) FROM comments WHERE created>? AND hidden=0", (since,)).fetchone()[0]
+            return self.send_json(200, {"likes": l, "comments": c})
         if route == "/owner/overview":
             if self.headers.get("Authorization") != "Bearer dev-token":
                 return self.send_json(401, {"error": "Geen toegang"})

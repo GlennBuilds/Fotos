@@ -3,7 +3,7 @@
   "name": "Fotoalbum beheer",
   "short_name": "Fotoalbum",
   "lang": "nl",
-  "start_url": "./",
+  "start_url": "../",
   "scope": "../",
   "display": "standalone",
   "background_color": "#f5f3ee",

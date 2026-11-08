@@ -483,7 +483,7 @@ def write_pwa(site, base):
     d.mkdir(parents=True, exist_ok=True)
     save_json(d / "manifest.webmanifest", {
         "id": "./beheer/", "name": "Fotoalbum beheer", "short_name": site["title"], "lang": "nl",
-        "start_url": "./", "scope": "../", "display": "standalone",
+        "start_url": "../", "scope": "../", "display": "standalone",
         "background_color": "#f5f3ee", "theme_color": "#f5f3ee",
         "icons": [{**i, "src": "../" + i["src"]} for i in icons]})
     body = f"""{header(site, "../", back=True)}
