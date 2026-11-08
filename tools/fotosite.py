@@ -225,7 +225,7 @@ ICON = {
 }
 
 
-def page(site, *, title, description, og_image, url, root, body_class, body, data_json):
+def page(site, *, title, description, og_image, url, root, body_class, body, data_json, manifest=None, script="app.js"):
     full_title = f"{title} · {site['title']}" if title != site["title"] else f"{site['title']} · {site['owner']}"
     return f"""<!doctype html>
 <html lang="nl">
@@ -248,13 +248,17 @@ def page(site, *, title, description, og_image, url, root, body_class, body, dat
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="{root}assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{root}assets/icon-180.png">
+<link rel="manifest" href="{manifest or (root + 'manifest.webmanifest')}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fotoalbum">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="{root}assets/style.css?v={site['_v']}">
 </head>
 <body class="{body_class}">
 {body}
-<script type="application/json" id="site-data">{json.dumps({"api": site.get("api", ""), "title": site["title"], "owner": site["owner"]}, ensure_ascii=False)}</script>
+<script type="application/json" id="site-data">{json.dumps({"api": site.get("api", ""), "title": site["title"], "owner": site["owner"], "vapid": site.get("vapid", "")}, ensure_ascii=False)}</script>
 <script type="application/json" id="page-data">{data_json}</script>
-<script src="{root}assets/app.js?v={site['_v']}" defer></script>
+<script src="{root}assets/{script}?v={site['_v']}" defer></script>
 </body>
 </html>
 """
@@ -328,6 +332,7 @@ def build():
         if d.is_dir() and d.name not in live:
             shutil.rmtree(d)
     write_home(site, base, albums)
+    write_pwa(site, base)
     save_json(OUT / "albums.json", {x["slug"]: x["title"] for x in albums})  # gebruikt door worker voor meldingen
     write_404(site, base)
     print(f"Gebouwd: {len(albums)} album(s) → {OUT}")
@@ -464,6 +469,31 @@ def write_album(site, base, a, newer, older):
                body_class="page-album", body=body, data_json=json_for_script(data))
     d = OUT / "album" / slug
     d.mkdir(parents=True, exist_ok=True)
+    (d / "index.html").write_text(out, "utf-8")
+
+
+def write_pwa(site, base):
+    shutil.copy2(SRC / "sw.js", OUT / "sw.js")
+    icons = [{"src": f"assets/icon-{n}.png", "sizes": f"{n}x{n}", "type": "image/png"} for n in (192, 512)]
+    save_json(OUT / "manifest.webmanifest", {
+        "id": "./", "name": f"{site['title']} · {site['owner']}", "short_name": site["title"], "lang": "nl",
+        "start_url": "./", "scope": "./", "display": "standalone",
+        "background_color": "#f5f3ee", "theme_color": "#f5f3ee", "icons": icons})
+    d = OUT / "beheer"
+    d.mkdir(parents=True, exist_ok=True)
+    save_json(d / "manifest.webmanifest", {
+        "id": "./beheer/", "name": "Fotoalbum beheer", "short_name": site["title"], "lang": "nl",
+        "start_url": "./", "scope": "../", "display": "standalone",
+        "background_color": "#f5f3ee", "theme_color": "#f5f3ee",
+        "icons": [{**i, "src": "../" + i["src"]} for i in icons]})
+    body = f"""{header(site, "../", back=True)}
+<main class="wrap owner">
+  <header class="album-head"><span class="kicker">Alleen voor jou</span><h1>Beheer</h1></header>
+  <section id="setup" class="owner-card setup"></section>
+  <section id="dash" hidden></section>
+</main>"""
+    out = page(site, title="Beheer", description="", og_image="", url=base + "beheer/", root="../", body_class="page-owner",
+               body=body, data_json="{}", manifest="manifest.webmanifest", script="beheer.js")
     (d / "index.html").write_text(out, "utf-8")
 
 

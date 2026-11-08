@@ -266,3 +266,23 @@ html:not(.show-counts) .badges { display: none; }
 .lb-ask-card .skip { background: transparent; color: rgba(242,239,232,.7); }
 .lb-ask-card .skip:hover { color: #f2efe8; }
 .lb-ask-card button[type="submit"] { background: #f2efe8; color: #111; }
+
+/* beheerpagina */
+.owner { padding-top: clamp(24px, 5vw, 48px); padding-bottom: 40px; max-width: 760px; }
+.owner h2 { font: 500 1.4rem/1.2 var(--serif); margin: 34px 0 14px; }
+.owner-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 14px; }
+.owner-card.setup h2 { margin-top: 0; }
+.owner-card h3 { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font: 500 1.2rem var(--serif); margin: 0 0 10px; }
+.owner-card h3 small { font: .85rem var(--sans); color: var(--ink-3); }
+.pair { display: flex; gap: 10px; flex-wrap: wrap; }
+.pair input { font-size: 1.4rem; letter-spacing: .3em; width: 9em; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.btn.dark { border: 0; cursor: pointer; }
+.err { color: var(--accent); font-size: .9rem; min-height: 1em; margin: 8px 0 0; }
+.steps { padding-left: 20px; } .steps li { margin: 6px 0; }
+.people, .comments { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.people .who, .comments .who { font-size: .95rem; }
+.fotos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.fotos a { font-size: .78rem; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.fotos a:hover { color: var(--ink); }
+.comments p { margin: 2px 0 0; }
+.comments a, .owner-card h3 a { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }

@@ -3,5 +3,6 @@
   "owner": "Glenn Blijs",
   "tagline": "Foto's om te delen met familie en vrienden",
   "base_url": "https://glennbuilds.github.io/Fotos/",
-  "api": "https://fotoalbum-api.glennbuilds.workers.dev"
+  "api": "https://fotoalbum-api.glennbuilds.workers.dev",
+  "vapid": "BFu1TZY3sKF83u26KjvvBQ8EnadUFc5NveF6qiBNms3tX4vy3n6N7NVZ3670zwaqdDp9XOVEssO_TxUc2N9Slt4"
 }

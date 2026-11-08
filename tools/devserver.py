@@ -56,6 +56,15 @@ class Handler(SimpleHTTPRequestHandler):
             com = dict(self.db.execute("SELECT photo, COUNT(*) FROM comments WHERE album=? AND hidden=0 GROUP BY photo", (album,)))
             mine = [r[0] for r in self.db.execute("SELECT photo FROM likes WHERE album=? AND client=?", (album, client))]
             return self.send_json(200, {"likes": likes, "comments": com, "mine": mine})
+        if route == "/owner/overview":
+            if self.headers.get("Authorization") != "Bearer dev-token":
+                return self.send_json(401, {"error": "Geen toegang"})
+            rows = self.db.execute("SELECT l.album, COALESCE(c.name,'Anoniem'), l.client, COUNT(*), MAX(l.created), GROUP_CONCAT(substr(l.photo, instr(l.photo,'/')+1)) "
+                                   "FROM likes l LEFT JOIN clients c ON c.client=l.client GROUP BY l.album, l.client ORDER BY 5 DESC").fetchall()
+            likes = [{"album": r[0], "wie": r[1], "toestel": r[2][:6], "likes": r[3], "laatst": r[4], "fotos": r[5]} for r in rows]
+            com = [dict(zip(("id", "photo", "album", "name", "text", "created"), r)) for r in
+                   self.db.execute("SELECT id, photo, album, name, text, created FROM comments WHERE hidden=0 ORDER BY created DESC LIMIT 50")]
+            return self.send_json(200, {"titles": {}, "likes": likes, "comments": com})
         if route == "/comments":
             photo = q.get("photo", "")
             if not PHOTO_RE.match(photo):
@@ -67,6 +76,11 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         route = urlparse(self.path).path[4:]
         b = self.body()
+        if route == "/owner/pair":
+            ok = str(b.get("code", "")) == "123456"
+            return self.send_json(200 if ok else 400, {"token": "dev-token"} if ok else {"error": "Onjuiste koppelcode."})
+        if route.startswith("/owner/"):
+            return self.send_json(200, {"ok": True, "sent": 0, "errors": ["lokaal: geen push"]})
         photo, client = str(b.get("photo", "")), str(b.get("client", ""))[:64]
         if not PHOTO_RE.match(photo) or len(client) < 8:
             return self.send_json(400, {"error": "Ongeldig verzoek"})

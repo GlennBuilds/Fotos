@@ -12,3 +12,5 @@ worker/node_modules/
 
 worker/.admin-key
 worker/.ntfy-topic
+worker/.vapid-private.json
+worker/.vapid-public

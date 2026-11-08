@@ -7,10 +7,12 @@
 //   GET    /admin/recent        (Authorization: Bearer ADMIN_KEY) -> laatste 100 reacties
 //   DELETE /admin/comments/<id> (Authorization: Bearer ADMIN_KEY) -> verbergt reactie
 
+import { sendPush, b64u } from "./push.js";
+
 const PHOTO_RE = /^[a-z0-9-]{1,80}\/[a-z0-9-]{1,40}$/;
 const ALBUM_RE = /^[a-z0-9-]{1,80}$/;
 
-// ---- meldingen via ntfy (https://ntfy.sh); topic staat als secret NTFY_TOPIC
+// ---- meldingen
 let titleCache = null, titleCacheAt = 0;
 async function albumTitle(env, slug) {
   try {
@@ -22,16 +24,23 @@ async function albumTitle(env, slug) {
   } catch (e) { titleCache = titleCache || {}; }
   return titleCache[slug] || slug.replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/-/g, " ");
 }
-async function notify(env, { title, message, tags, click }) {
-  if (!env.NTFY_TOPIC) return { status: 0, body: "geen NTFY_TOPIC" };
-  const r = await fetch("https://ntfy.sh/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ topic: env.NTFY_TOPIC, title, message, tags, click }),
-  });
-  const body = await r.text();
-  if (!r.ok) console.log("ntfy fout", r.status, body);
-  return { status: r.status, body: body.slice(0, 300) };
+// Melding naar Glenns gekoppelde toestellen (eigen web push, zie push.js).
+async function notify(env, { title, message, click, tag }) {
+  const res = await sendPush(env, { title, body: message, url: click, tag });
+  if (res.errors.length) console.log("push fouten", JSON.stringify(res.errors));
+  return { ...res, status: res.sent > 0 ? 200 : 503 };
+}
+
+const sha256hex = async (s) =>
+  [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+// Eigenaar = admin-sleutel of een via koppelcode uitgegeven toesteltoken.
+async function isOwner(req, env) {
+  const auth = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/, "");
+  if (!auth) return false;
+  if (env.ADMIN_KEY && auth === env.ADMIN_KEY) return true;
+  const row = await env.DB.prepare("SELECT 1 AS ok FROM owners WHERE token_hash=?").bind(await sha256hex(auth)).first("ok");
+  return !!row;
 }
 const photoUrl = (env, photo) => {
   const [slug, id] = photo.split("/");
@@ -68,7 +77,7 @@ async function likeDigest(env) {
       ? `❤️ ${single.name} vond ${total === 1 ? "een foto" : `${total} foto's`} leuk · ${titles.join(", ")}`
       : `❤️ ${total} nieuwe likes · ${titles.join(", ")}`,
     message: lines.join("\n"),
-    tags: ["heart"],
+    tag: "likes",
     click: total === 1 ? photoUrl(env, rows[0].photo) : `${env.SITE_URL}album/${albums[0]}/`,
   });
   // alleen als verstuurd: anders volgende ronde opnieuw proberen
@@ -162,29 +171,74 @@ export default {
         ctx.waitUntil(albumTitle(env, album).then((t) => notify(env, {
           title: `💬 ${name} · ${t}`,
           message: text,
-          tags: ["speech_balloon"],
+          tag: `c-${photo}`,
           click: photoUrl(env, photo),
         })).catch(() => {}));
         return json(200, { comment: { id: r.meta.last_row_id, name, text, created: now } });
       }
 
-      if (path.startsWith("/admin/")) {
-        const auth = req.headers.get("Authorization") || "";
-        if (!env.ADMIN_KEY || auth !== `Bearer ${env.ADMIN_KEY}`) return json(401, { error: "Geen toegang" });
-        if (req.method === "POST" && path === "/admin/test-notify") {
-          return json(200, await notify(env, { title: "Test vanuit de worker", message: "Als je dit ziet, werken meldingen vanuit Cloudflare.", tags: ["white_check_mark"] }));
+      // ---- eigenaar: koppelen met eenmalige code (aangemaakt door Claude in meta.pair_code = "123456|verloopt_ms")
+      if (req.method === "POST" && path === "/owner/pair") {
+        let b = {};
+        try { b = await req.json(); } catch (e) { /* leeg */ }
+        const code = String(b.code || "").replace(/\D/g, "");
+        const stored = await db.prepare("SELECT value FROM meta WHERE key='pair_code'").first("value");
+        const [want, exp] = String(stored || "").split("|");
+        const tries = Number(await db.prepare("SELECT value FROM meta WHERE key='pair_tries'").first("value")) || 0;
+        if (!want || Date.now() > Number(exp) || tries >= 10) return json(400, { error: "Deze koppelcode is verlopen. Vraag een nieuwe aan." });
+        if (code !== want) {
+          await db.prepare("INSERT INTO meta (key, value) VALUES ('pair_tries', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+            .bind(String(tries + 1)).run();
+          return json(400, { error: "Onjuiste koppelcode." });
         }
-        if (req.method === "GET" && path === "/admin/likes") {
+        const token = b64u(crypto.getRandomValues(new Uint8Array(32)));
+        await db.batch([
+          db.prepare("INSERT INTO owners (token_hash, label, created) VALUES (?,?,?)")
+            .bind(await sha256hex(token), String(b.label || "").slice(0, 80), Date.now()),
+          db.prepare("DELETE FROM meta WHERE key IN ('pair_code', 'pair_tries')"),
+        ]);
+        return json(200, { token });
+      }
+
+      if (path.startsWith("/owner/") || path.startsWith("/admin/")) {
+        if (!(await isOwner(req, env))) return json(401, { error: "Geen toegang" });
+        const route = path.replace(/^\/(owner|admin)/, "");
+        if (req.method === "POST" && route === "/subscribe") {
+          let b = {};
+          try { b = await req.json(); } catch (e) { /* leeg */ }
+          const s = b.subscription || {};
+          const keys = s.keys || {};
+          if (!/^https:\/\//.test(s.endpoint || "") || !keys.p256dh || !keys.auth) return json(400, { error: "Ongeldig abonnement" });
+          await db.prepare("INSERT INTO push_subs (endpoint, p256dh, auth, created) VALUES (?,?,?,?) ON CONFLICT(endpoint) DO UPDATE SET p256dh=excluded.p256dh, auth=excluded.auth")
+            .bind(s.endpoint, keys.p256dh, keys.auth, Date.now()).run();
+          return json(200, { ok: true });
+        }
+        if (req.method === "POST" && (route === "/test" || route === "/test-notify")) {
+          return json(200, await notify(env, { title: "✅ Meldingen staan aan", message: "Je krijgt nu een melding bij nieuwe likes en reacties.", click: env.SITE_URL, tag: "test" }));
+        }
+        if (req.method === "GET" && route === "/overview") {
+          const [l, c] = await db.batch([
+            db.prepare("SELECT l.album, COALESCE(c.name, 'Anoniem') AS wie, l.client, COUNT(*) AS likes, MAX(l.created) AS laatst, " +
+              "GROUP_CONCAT(substr(l.photo, instr(l.photo, '/') + 1)) AS fotos FROM likes l LEFT JOIN clients c ON c.client=l.client " +
+              "GROUP BY l.album, l.client ORDER BY laatst DESC"),
+            db.prepare("SELECT id, photo, album, name, text, created FROM comments WHERE hidden=0 ORDER BY created DESC LIMIT 50"),
+          ]);
+          const albums = [...new Set([...l.results, ...c.results].map((r) => r.album))];
+          const titles = Object.fromEntries(await Promise.all(albums.map(async (a) => [a, await albumTitle(env, a)])));
+          const likes = l.results.map(({ client, ...r }) => ({ ...r, toestel: client.slice(0, 6) }));
+          return json(200, { titles, likes, comments: c.results, site: env.SITE_URL });
+        }
+        if (req.method === "GET" && route === "/likes") {
           const r = await db.prepare(
             "SELECT l.album, COALESCE(c.name, 'anoniem (' || substr(l.client,1,6) || ')') AS wie, COUNT(*) AS likes, MAX(l.created) AS laatst " +
             "FROM likes l LEFT JOIN clients c ON c.client=l.client GROUP BY l.album, l.client ORDER BY laatst DESC").all();
           return json(200, { likes: r.results });
         }
-        if (req.method === "GET" && path === "/admin/recent") {
+        if (req.method === "GET" && route === "/recent") {
           const r = await db.prepare("SELECT * FROM comments ORDER BY created DESC LIMIT 100").all();
           return json(200, { comments: r.results });
         }
-        const m = path.match(/^\/admin\/comments\/(\d+)$/);
+        const m = route.match(/^\/comments\/(\d+)$/);
         if (req.method === "DELETE" && m) {
           await db.prepare("UPDATE comments SET hidden=1 WHERE id=?").bind(Number(m[1])).run();
           return json(200, { ok: true });

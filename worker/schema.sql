@@ -31,3 +31,16 @@ CREATE TABLE IF NOT EXISTS clients (
   name    TEXT NOT NULL,
   updated INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS owners (
+  token_hash TEXT PRIMARY KEY,
+  label      TEXT,
+  created    INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS push_subs (
+  endpoint TEXT PRIMARY KEY,
+  p256dh   TEXT NOT NULL,
+  auth     TEXT NOT NULL,
+  created  INTEGER NOT NULL
+);
