@@ -294,3 +294,5 @@ html:not(.show-counts) .badges { display: none; }
 .lb-likers b { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: rgba(242,239,232,.6); }
 .lb-likers svg { width: 13px; height: 13px; color: var(--heart); fill: var(--heart); }
 .lb-likers .none { color: rgba(242,239,232,.5); }
+.owner-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.owner-head .back { background: none; cursor: pointer; font: inherit; font-size: .92rem; }

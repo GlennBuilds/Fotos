@@ -183,9 +183,9 @@ export default {
         try { b = await req.json(); } catch (e) { /* leeg */ }
         const code = String(b.code || "").replace(/\D/g, "");
         const stored = await db.prepare("SELECT value FROM meta WHERE key='pair_code'").first("value");
-        const [want, exp] = String(stored || "").split("|");
+        const [want, exp, usesLeft] = String(stored || "").split("|");
         const tries = Number(await db.prepare("SELECT value FROM meta WHERE key='pair_tries'").first("value")) || 0;
-        if (!want || Date.now() > Number(exp) || tries >= 10) return json(400, { error: "Deze koppelcode is verlopen. Vraag een nieuwe aan." });
+        if (!want || Date.now() > Number(exp) || tries >= 10) return json(400, { error: "Deze koppelcode is verlopen of al gebruikt. Vraag een nieuwe aan." });
         if (code !== want) {
           await db.prepare("INSERT INTO meta (key, value) VALUES ('pair_tries', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
             .bind(String(tries + 1)).run();
@@ -195,7 +195,10 @@ export default {
         await db.batch([
           db.prepare("INSERT INTO owners (token_hash, label, created) VALUES (?,?,?)")
             .bind(await sha256hex(token), String(b.label || "").slice(0, 80), Date.now()),
-          db.prepare("DELETE FROM meta WHERE key IN ('pair_code', 'pair_tries')"),
+          // code mag binnen de geldigheid een paar keer gebruikt worden (Safari en beginscherm-app hebben aparte opslag)
+          Number(usesLeft) > 1
+            ? db.prepare("UPDATE meta SET value=? WHERE key='pair_code'").bind(`${want}|${exp}|${Number(usesLeft) - 1}`)
+            : db.prepare("DELETE FROM meta WHERE key IN ('pair_code', 'pair_tries')"),
         ]);
         return json(200, { token });
       }

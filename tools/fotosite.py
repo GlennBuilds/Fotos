@@ -488,7 +488,7 @@ def write_pwa(site, base):
         "icons": [{**i, "src": "../" + i["src"]} for i in icons]})
     body = f"""{header(site, "../", back=True)}
 <main class="wrap owner">
-  <header class="album-head"><span class="kicker">Alleen voor jou</span><h1>Beheer</h1></header>
+  <header class="album-head owner-head"><div><span class="kicker">Alleen voor jou</span><h1>Beheer</h1></div><button class="back" id="refresh" type="button" onclick="location.reload()">↻ Vernieuwen</button></header>
   <section id="setup" class="owner-card setup"></section>
   <section id="dash" hidden></section>
 </main>"""
