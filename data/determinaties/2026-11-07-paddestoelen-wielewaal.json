@@ -1,0 +1,250 @@
+{
+  "bron": "2026-11-07_Determinatieoverzicht_Wielewaal.xlsx",
+  "fotos": {
+    "1": {
+      "sci": "Leratiomyces ceres",
+      "nl": "Oranjerode stropharia",
+      "url": "https://waarneming.nl/species/673349/",
+      "niveau": "Soort",
+      "zeker": true
+    },
+    "2": {
+      "sci": "Mycena inclinata",
+      "nl": "Fraaisteelmycena",
+      "url": "https://waarneming.nl/species/15126/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "3": {
+      "sci": "Russula caerulea",
+      "nl": "Papilrussula",
+      "url": "https://waarneming.nl/species/673659/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "7": {
+      "sci": "Chlorophyllum rhacodes sl, incl. brunneum, olivieri",
+      "nl": "Gewone knolparasolzwam",
+      "url": "https://waarneming.nl/species/672882/",
+      "niveau": "Soortgroep",
+      "zeker": false
+    },
+    "10": {
+      "sci": "Lepista flaccida",
+      "nl": "Roodbruine schijnridderzwam",
+      "url": "https://waarneming.nl/species/15496/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "11": {
+      "sci": "Laccaria laccata",
+      "nl": "Gewone fopzwam",
+      "url": "https://waarneming.nl/species/15189/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "13": {
+      "sci": "Cordyceps militaris",
+      "nl": "Rupsendoder",
+      "url": "https://waarneming.nl/species/16371/",
+      "niveau": "Soort",
+      "zeker": true
+    },
+    "14": {
+      "sci": "Calocera spec.",
+      "nl": "",
+      "url": "",
+      "niveau": "Geslacht",
+      "zeker": false
+    },
+    "18": {
+      "sci": "Panaeolus acuminatus",
+      "nl": "Spitse vlekplaat",
+      "url": "https://waarneming.nl/species/15558/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "21": {
+      "sci": "Agaricus spec.",
+      "nl": "",
+      "url": "",
+      "niveau": "Geslacht",
+      "zeker": false
+    },
+    "23": {
+      "sci": "Armillaria mellea",
+      "nl": "Echte honingzwam",
+      "url": "https://waarneming.nl/species/15110/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "24": {
+      "sci": "Mycena spec.",
+      "nl": "",
+      "url": "",
+      "niveau": "Geslacht",
+      "zeker": false
+    },
+    "27": {
+      "sci": "Coprinellus micaceus",
+      "nl": "Gewone glimmerinktzwam",
+      "url": "https://waarneming.nl/species/672948/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "28": {
+      "sci": "Amanita muscaria",
+      "nl": "Vliegenzwam",
+      "url": "https://waarneming.nl/species/15649/",
+      "niveau": "Soort",
+      "zeker": true
+    },
+    "32": {
+      "sci": "Phallus impudicus",
+      "nl": "Grote stinkzwam",
+      "url": "https://waarneming.nl/species/673527/",
+      "niveau": "Soort",
+      "zeker": true
+    },
+    "33": {
+      "sci": "Clitocybe nebularis",
+      "nl": "Nevelzwam",
+      "url": "https://waarneming.nl/species/15410/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "34": {
+      "sci": "Armillaria ostoyae",
+      "nl": "Sombere honingzwam",
+      "url": "https://waarneming.nl/species/15547/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "35": {
+      "sci": "Trametes gibbosa",
+      "nl": "Witte bultzwam",
+      "url": "https://waarneming.nl/species/15994/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "37": {
+      "sci": "Trametes versicolor",
+      "nl": "Gewoon elfenbankje",
+      "url": "https://waarneming.nl/species/15821/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "38": {
+      "sci": "Hypholoma fasciculare",
+      "nl": "Gewone zwavelkop",
+      "url": "https://waarneming.nl/species/80785/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "39": {
+      "sci": "Argiope bruennichi",
+      "nl": "Wespspin",
+      "url": "https://waarneming.nl/species/1729/",
+      "niveau": "Soort",
+      "zeker": true
+    },
+    "41": {
+      "sci": "Filipendula spec.",
+      "nl": "",
+      "url": "",
+      "niveau": "Geslacht",
+      "zeker": false
+    },
+    "43": {
+      "sci": "Plicaturopsis crispa",
+      "nl": "Plooivlieswaaiertje",
+      "url": "https://waarneming.nl/species/14270/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "48": {
+      "sci": "Tremella mesenterica",
+      "nl": "Gele trilzwam",
+      "url": "https://waarneming.nl/species/16528/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "50": {
+      "sci": "Laccaria proxima",
+      "nl": "Schubbige fopzwam",
+      "url": "https://waarneming.nl/species/15521/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "55": {
+      "sci": "Coprinopsis spec.",
+      "nl": "",
+      "url": "",
+      "niveau": "Geslacht",
+      "zeker": false
+    },
+    "56": {
+      "sci": "Aleuria aurantia",
+      "nl": "Grote oranje bekerzwam",
+      "url": "https://waarneming.nl/species/16203/",
+      "niveau": "Soort",
+      "zeker": true
+    },
+    "61": {
+      "sci": "Ascocoryne sarcoides sl, incl. cylichnium",
+      "nl": "Paarse knoopzwam",
+      "url": "https://waarneming.nl/species/16328/",
+      "niveau": "Soortgroep",
+      "zeker": false
+    },
+    "62": {
+      "sci": "Schizophyllum commune",
+      "nl": "Waaiertje",
+      "url": "https://waarneming.nl/species/13776/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "65": {
+      "sci": "Leccinum scabrum sl, incl. cyaneobasileucum, melaneum, schistophilum, variicolor",
+      "nl": "Gewone berkenboleet",
+      "url": "https://waarneming.nl/species/15185/",
+      "niveau": "Soortgroep",
+      "zeker": false
+    },
+    "67": {
+      "sci": "Daedaleopsis confragosa",
+      "nl": "Roodporiehoutzwam",
+      "url": "https://waarneming.nl/species/15931/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "77": {
+      "sci": "Clavulina cinerea",
+      "nl": "Asgrauwe koraalzwam",
+      "url": "https://waarneming.nl/species/15737/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "78": {
+      "sci": "Postia guttulata",
+      "nl": "Zwetende kaaszwam",
+      "url": "https://waarneming.nl/species/673573/",
+      "niveau": "Soort",
+      "zeker": false
+    },
+    "82": {
+      "sci": "Sparassis crispa",
+      "nl": "Grote sponszwam",
+      "url": "https://waarneming.nl/species/15847/",
+      "niveau": "Soort",
+      "zeker": true
+    },
+    "84": {
+      "sci": "Lycoperdon pyriforme",
+      "nl": "Peervormige stuifzwam",
+      "url": "https://waarneming.nl/species/16500/",
+      "niveau": "Soort",
+      "zeker": false
+    }
+  }
+}

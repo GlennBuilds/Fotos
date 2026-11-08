@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 OUT = ROOT / "docs"
 DATA = ROOT / "data" / "albums"
+DETS = ROOT / "data" / "determinaties"
 CATALOG = ROOT / "albums.json"
 SITE = ROOT / "site.json"
 ICLOUD = Path.home() / "Library/Mobile Documents/com~apple~CloudDocs"
@@ -311,6 +312,11 @@ def build():
             print(f"  overgeslagen (nog niet gesynct): {a['slug']}")
             continue
         photos = man["photos"]
+        dets = load_json(DETS / f"{a['slug']}.json", {"fotos": {}})["fotos"]
+        for p in photos:
+            p.pop("sp", None)
+            if p["id"] in dets:
+                p["sp"] = dets[p["id"]]
         first, last = album_meta(a, photos)
         cover = pick_cover(a, photos)
         albums.append({**a, "photos": photos, "first": first, "last": last, "cover_p": cover,
@@ -347,7 +353,8 @@ def build():
 def card(a, root, big=False):
     c = a["cover_p"]
     img = f"{root}img/{a['slug']}/{c['id']}-{'lg' if big else 'sm'}.jpg"
-    search = " ".join([a["title"], a.get("place", ""), a.get("category", ""), a["date_label"], a.get("description", "")])
+    search = " ".join([a["title"], a.get("place", ""), a.get("category", ""), a["date_label"], a.get("description", "")]
+                      + [f"{p['sp'].get('nl', '')} {p['sp']['sci']}" for p in a["photos"] if p.get("sp")])
     search = unicodedata.normalize("NFKD", search.lower()).encode("ascii", "ignore").decode()
     sub = " · ".join(x for x in [a.get("place"), a["date_label"]] if x)
     return f"""<a class="card" href="{root}album/{a['slug']}/" data-cat="{esc(a.get('category', ''))}" data-search="{esc(search)}">
@@ -448,7 +455,8 @@ def write_album(site, base, a, newer, older):
         return (f'<a class="nav-card" href="{root}album/{x["slug"]}/"><img src="{root}img/{x["slug"]}/{c["id"]}-sm.jpg" alt="" loading="lazy">'
                 f'<span><small>{label}</small><b>{esc(x["title"])}</b><em>{esc(x["date_label"])}</em></span></a>')
 
-    sub = " · ".join(x for x in [a.get("place"), a["date_label"], f"{len(photos)} foto's"] if x)
+    nsp = len({p["sp"]["sci"] for p in photos if p.get("sp")})
+    sub = " · ".join(x for x in [a.get("place"), a["date_label"], f"{len(photos)} foto's", f"{nsp} soorten" if nsp else ""] if x)
     desc = f'<p class="lead">{esc(a["description"])}</p>' if a.get("description") else ""
     body = f"""{header(site, root, back=True)}
 <main class="wrap album">
@@ -464,7 +472,7 @@ def write_album(site, base, a, newer, older):
 {footer(site)}"""
     data = {
         "slug": slug, "title": a["title"], "date": a["date_label"], "url": url,
-        "photos": [{k: p[k] for k in ("id", "w", "h", "camera", "lens", "settings", "taken") if p.get(k)} for p in photos],
+        "photos": [{k: p[k] for k in ("id", "w", "h", "camera", "lens", "settings", "taken", "sp") if p.get(k)} for p in photos],
         "dl": f"{a['first'].isoformat()}_{re.sub(r'[^A-Za-z0-9]+', '', a['title'].title())}",
     }
     descr = " · ".join(x for x in [a.get("place"), a["date_label"], f"{len(photos)} foto's"] if x)
@@ -531,6 +539,64 @@ def cmd_add(args):
     build()
 
 
+def lookup_species(sci):
+    """Nederlandse naam + soortpagina via de openbare zoekfunctie van waarneming.nl."""
+    import urllib.parse
+    import urllib.request
+    base = re.sub(r"\s+(sl|s\.l\.)\b.*$", "", sci).strip()
+    genus_only = base.endswith(" spec.") or base.endswith(" sp.")
+    q = base.replace(" spec.", "").replace(" sp.", "")
+    if genus_only:
+        return {}  # de zoekfunctie kent geen geslachten; geen gok doen
+    req = urllib.request.Request(
+        "https://waarneming.nl/api/v1/species/search/?" + urllib.parse.urlencode({"q": q}),
+        headers={"Accept-Language": "nl", "User-Agent": "Fotoalbum (persoonlijk)"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        res = json.load(r).get("results", [])
+    hit = next((x for x in res if x.get("scientific_name", "").lower() == q.lower()), None)
+    if not hit:
+        return {}
+    nl = hit.get("name") or ""
+    if nl.lower() == hit.get("scientific_name", "").lower():
+        nl = ""
+    return {"nl": nl, "url": hit.get("permalink", ""), "group": hit.get("group_name", "")}
+
+
+def cmd_determinaties(args):
+    import openpyxl
+    wb = openpyxl.load_workbook(args.xlsx, data_only=True)
+    ws = wb["Determinaties"] if "Determinaties" in wb.sheetnames else wb.worksheets[0]
+    header_row = None
+    for row in ws.iter_rows(min_row=1, max_row=20):
+        vals = [str(c.value or "").strip().lower() for c in row]
+        if "foto" in vals and any("wetenschappelijke" in v for v in vals):
+            header_row = row[0].row
+            cols = {v: i for i, v in enumerate(vals)}
+            break
+    if not header_row:
+        sys.exit("Kopregel met 'Foto' en 'wetenschappelijke naam' niet gevonden.")
+    ci = lambda key: next(i for v, i in cols.items() if key in v)
+    c_foto, c_file, c_sci, c_lvl, c_stat = ci("foto"), ci("bestandsnaam"), ci("wetenschappelijke"), ci("niveau"), ci("status")
+    out = load_json(DETS / f"{args.slug}.json", {"bron": "", "fotos": {}})
+    out["bron"] = Path(args.xlsx).name
+    n = 0
+    for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
+        if not row[c_foto] or not row[c_sci]:
+            continue
+        m = NUM_RE.search(str(row[c_file] or ""))
+        pid = m.group(1) if m else str(row[c_foto])
+        sci = str(row[c_sci]).strip()
+        info = lookup_species(sci)
+        out["fotos"][pid] = {
+            "sci": sci, "nl": info.get("nl", ""), "url": info.get("url", ""),
+            "niveau": str(row[c_lvl] or "").strip(), "zeker": "onzeker" not in str(row[c_stat] or "").lower(),
+        }
+        n += 1
+        print(f"  foto {pid}: {sci} → {info.get('nl') or '(geen Nederlandse naam)'}")
+    save_json(DETS / f"{args.slug}.json", out)
+    print(f"{n} determinaties opgeslagen voor {args.slug}")
+
+
 def cmd_sync(args):
     for a in load_json(CATALOG, []):
         if not args.slug or a["slug"] == args.slug:
@@ -561,6 +627,9 @@ def main():
     a.add_argument("--slug")
     a.add_argument("--cover")
     a.add_argument("--min-rating", type=int, default=3)
+    dp = sp.add_parser("determinaties")
+    dp.add_argument("slug")
+    dp.add_argument("xlsx")
     s = sp.add_parser("sync")
     s.add_argument("slug", nargs="?")
     s.add_argument("--force", action="store_true")
@@ -574,6 +643,8 @@ def main():
         cmd_add(args)
     elif args.cmd == "sync":
         cmd_sync(args)
+    elif args.cmd == "determinaties":
+        cmd_determinaties(args)
     elif args.cmd == "build":
         build()
     elif args.cmd == "serve":

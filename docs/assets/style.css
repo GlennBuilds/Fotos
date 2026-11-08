@@ -353,3 +353,11 @@ html:not(.show-counts) .badges { display: none; }
 .new { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 11px; font-weight: 600; vertical-align: 2px; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+/* soort (determinatie) */
+.lb-species { display: grid; gap: 2px; padding: 12px 16px; margin: 0 0 12px; border-radius: 12px; background: #2c2c2e; }
+.lb-species b { font-size: 20px; font-weight: 600; letter-spacing: -.02em; color: #f5f5f7; }
+.lb-species i { font-size: 15px; color: rgba(245,245,247,.75); }
+.lb-species span { font-size: 13px; color: rgba(245,245,247,.55); margin-top: 4px; }
+.lb-species a { font-size: 15px; color: #0a84ff; margin-top: 6px; }
+.lb-title b { max-width: 52vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -126,6 +126,7 @@
       <aside class="lb-panel" aria-label="Reacties en info">
         <div class="lb-panel-head"><h2>Reacties</h2><button class="lb-btn lb-pclose" aria-label="Paneel sluiten">${I.close}</button></div>
         <div class="lb-panel-body">
+          <div class="lb-species" hidden></div>
           <div class="lb-exif"></div>
           <div class="lb-likers" hidden></div>
           <ol class="lb-comments"></ol>
@@ -156,6 +157,11 @@
     el.form.elements.name.value = store.get("fa_name") || "";
 
     let cur = -1, pushed = false, lastFocus = null, panelMode = null;
+
+    function spName(sp) {
+      if (sp.nl) return sp.nl.charAt(0).toUpperCase() + sp.nl.slice(1);
+      return sp.sci.replace(/\s+spec\.$/, " (geslacht)");
+    }
 
     function paintTile(p) {
       const t = tiles.get(p.id); if (!t) return;
@@ -232,10 +238,25 @@
       cur = (i + photos.length) % photos.length;
       const p = photos[cur];
       el.count.textContent = `${cur + 1} van ${photos.length}`;
-      if (p.taken) {
-        const t = new Date(p.taken);
-        $(".lb-title", lb).innerHTML = `<b>${t.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })}</b><small>${t.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}</small>`;
-      } else $(".lb-title", lb).innerHTML = `<b>${escHtml(A.title)}</b>`;
+      {
+        const t = p.taken ? new Date(p.taken) : null;
+        const dateTxt = t ? t.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" }) : A.title;
+        const timeTxt = t ? t.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) : "";
+        $(".lb-title", lb).innerHTML = p.sp
+          ? `<b>${escHtml(spName(p.sp))}</b><small>${escHtml(dateTxt)}${timeTxt ? " · " + timeTxt : ""}</small>`
+          : `<b>${escHtml(dateTxt)}</b><small>${escHtml(timeTxt)}</small>`;
+      }
+      const spBox = $(".lb-species", lb);
+      spBox.hidden = !p.sp;
+      if (p.sp) {
+        const lvl = (p.sp.niveau || "").toLowerCase();
+        const kind = lvl === "geslacht" ? "Geslacht" : lvl === "soortgroep" ? "Soortgroep" : "Soort";
+        const sci = p.sp.sci.replace(/\s+sl,?\s*incl\..*$/i, " s.l.");
+        spBox.innerHTML = `<b>${escHtml(spName(p.sp))}</b>` +
+          (p.sp.nl ? `<i>${escHtml(sci)}</i>` : "") +
+          `<span>${kind} · ${p.sp.zeker ? "zeker" : "onzeker"} gedetermineerd op waarneming.nl</span>` +
+          (p.sp.url ? `<a href="${escHtml(p.sp.url)}" target="_blank" rel="noopener">Over deze soort op waarneming.nl ›</a>` : "");
+      }
       el.prev.disabled = cur === 0; el.next.disabled = cur === photos.length - 1;
       const small = src(p, "sm"), large = src(p, "lg");
       el.img.classList.add("fade");
