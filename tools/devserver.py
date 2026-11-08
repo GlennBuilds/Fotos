@@ -73,6 +73,9 @@ class Handler(SimpleHTTPRequestHandler):
         album = photo.split("/")[0]
         now = int(time.time() * 1000)
         if route == "/like":
+            nm = str(b.get("name", "")).strip()[:40]
+            if nm:
+                self.db.execute("INSERT INTO clients (client, name, updated) VALUES (?,?,?) ON CONFLICT(client) DO UPDATE SET name=excluded.name, updated=excluded.updated", (client, nm, now))
             cur = self.db.execute("DELETE FROM likes WHERE photo=? AND client=?", (photo, client))
             liked = cur.rowcount == 0
             if liked:
@@ -91,6 +94,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(429, {"error": "Even rustig aan — probeer het zo nog eens."})
             cur = self.db.execute("INSERT INTO comments (photo, album, name, text, client, created) VALUES (?,?,?,?,?,?)",
                                   (photo, album, name, text, client, now))
+            self.db.execute("INSERT INTO clients (client, name, updated) VALUES (?,?,?) ON CONFLICT(client) DO UPDATE SET name=excluded.name, updated=excluded.updated", (client, name, now))
             self.db.commit()
             return self.send_json(200, {"comment": {"id": cur.lastrowid, "name": name, "text": text, "created": now}})
         return self.send_json(404, {"error": "Niet gevonden"})

@@ -253,3 +253,16 @@ html:not(.show-counts) .badges { display: none; }
   .lb-panel::before { content: ""; width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.25); margin: 8px auto 0; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+/* naamvraag bij eerste like */
+.lb-ask { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.lb-ask-card { width: min(360px, 100%); padding: 24px; border-radius: 20px; background: #1d1c19; border: 1px solid rgba(255,255,255,.08); box-shadow: 0 30px 80px rgba(0,0,0,.5); display: grid; gap: 12px; }
+.lb-ask-card h2 { font: 500 1.5rem/1.2 var(--serif); margin: 0; }
+.lb-ask-card p { margin: 0; font-size: .92rem; color: rgba(242,239,232,.7); }
+.lb-ask-card input { width: 100%; border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.06); border-radius: 12px; padding: 11px 12px; outline: 0; color: #f2efe8; font-size: 16px; }
+.lb-ask-card input:focus { border-color: rgba(255,255,255,.4); }
+.lb-ask-card .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.lb-ask-card button { height: 42px; padding: 0 18px; border-radius: 999px; border: 0; font-weight: 600; cursor: pointer; }
+.lb-ask-card .skip { background: transparent; color: rgba(242,239,232,.7); }
+.lb-ask-card .skip:hover { color: #f2efe8; }
+.lb-ask-card button[type="submit"] { background: #f2efe8; color: #111; }

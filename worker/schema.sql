@@ -25,3 +25,9 @@ CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT
 );
+
+CREATE TABLE IF NOT EXISTS clients (
+  client  TEXT PRIMARY KEY,
+  name    TEXT NOT NULL,
+  updated INTEGER NOT NULL
+);

@@ -252,7 +252,7 @@ def page(site, *, title, description, og_image, url, root, body_class, body, dat
 </head>
 <body class="{body_class}">
 {body}
-<script type="application/json" id="site-data">{json.dumps({"api": site.get("api", ""), "title": site["title"]})}</script>
+<script type="application/json" id="site-data">{json.dumps({"api": site.get("api", ""), "title": site["title"], "owner": site["owner"]}, ensure_ascii=False)}</script>
 <script type="application/json" id="page-data">{data_json}</script>
 <script src="{root}assets/app.js?v={site['_v']}" defer></script>
 </body>

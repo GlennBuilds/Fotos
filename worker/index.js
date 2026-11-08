@@ -39,23 +39,40 @@ const photoUrl = (env, photo) => {
 async function likeDigest(env) {
   const db = env.DB;
   const last = Number(await db.prepare("SELECT value FROM meta WHERE key='likes_notified'").first("value")) || Date.now() - 600000;
-  const rows = (await db.prepare("SELECT photo, album, COUNT(*) AS n, MAX(created) AS t FROM likes WHERE created>? GROUP BY photo ORDER BY n DESC")
+  const rows = (await db.prepare(
+    "SELECT l.photo, l.album, l.client, c.name, l.created FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.created>? ORDER BY l.created")
     .bind(last).all()).results;
   if (!rows.length) return;
-  const newest = Math.max(...rows.map((r) => r.t));
+  const newest = Math.max(...rows.map((r) => r.created));
   await db.prepare("INSERT INTO meta (key, value) VALUES ('likes_notified', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
     .bind(String(newest)).run();
-  const total = rows.reduce((a, r) => a + r.n, 0);
+  const total = rows.length;
   const albums = [...new Set(rows.map((r) => r.album))];
-  const names = await Promise.all(albums.map((a) => albumTitle(env, a)));
-  const fotos = rows.slice(0, 6).map((r) => `foto ${r.photo.split("/")[1]}${r.n > 1 ? ` (${r.n}×)` : ""}`).join(", ");
+  const titles = await Promise.all(albums.map((a) => albumTitle(env, a)));
+  // per persoon (of per anoniem toestel)
+  const people = new Map();
+  let anon = 0;
+  for (const r of rows) {
+    const id = r.name ? `n:${r.name}` : `c:${r.client}`;
+    if (!people.has(id)) people.set(id, { name: r.name || `iemand ${++anon > 1 ? anon : ""}`.trim(), photos: [] });
+    people.get(id).photos.push(r.photo.split("/")[1]);
+  }
+  const lines = [...people.values()].map((p) => p.photos.length === 1
+    ? `${p.name}: foto ${p.photos[0]}`
+    : `${p.name}: ${p.photos.length} foto's`);
+  const single = people.size === 1 ? [...people.values()][0] : null;
   await notify(env, {
-    title: `❤️ ${total} nieuwe like${total === 1 ? "" : "s"} · ${names.join(", ")}`,
-    message: `${fotos}${rows.length > 6 ? " …" : ""}`,
+    title: single
+      ? `❤️ ${single.name} vond ${total === 1 ? "een foto" : `${total} foto's`} leuk · ${titles.join(", ")}`
+      : `❤️ ${total} nieuwe likes · ${titles.join(", ")}`,
+    message: lines.join("\n"),
     tags: ["heart"],
-    click: rows.length === 1 ? photoUrl(env, rows[0].photo) : `${env.SITE_URL}album/${albums[0]}/`,
+    click: total === 1 ? photoUrl(env, rows[0].photo) : `${env.SITE_URL}album/${albums[0]}/`,
   });
 }
+const saveName = (db, client, name, now) =>
+  db.prepare("INSERT INTO clients (client, name, updated) VALUES (?,?,?) ON CONFLICT(client) DO UPDATE SET name=excluded.name, updated=excluded.updated")
+    .bind(client, name, now).run();
 
 export default {
   async scheduled(event, env, ctx) {
@@ -112,6 +129,8 @@ export default {
         const now = Date.now();
 
         if (path === "/like") {
+          const likeName = String(b.name || "").trim().slice(0, 40);
+          if (likeName) await saveName(db, client, likeName, now);
           const del = await db.prepare("DELETE FROM likes WHERE photo=? AND client=?").bind(photo, client).run();
           const liked = del.meta.changes === 0;
           if (liked) {
@@ -132,6 +151,7 @@ export default {
         const r = await db
           .prepare("INSERT INTO comments (photo, album, name, text, client, created) VALUES (?,?,?,?,?,?)")
           .bind(photo, album, name, text, client, now).run();
+        await saveName(db, client, name, now);
         ctx.waitUntil(albumTitle(env, album).then((t) => notify(env, {
           title: `💬 ${name} · ${t}`,
           message: text,
@@ -144,6 +164,12 @@ export default {
       if (path.startsWith("/admin/")) {
         const auth = req.headers.get("Authorization") || "";
         if (!env.ADMIN_KEY || auth !== `Bearer ${env.ADMIN_KEY}`) return json(401, { error: "Geen toegang" });
+        if (req.method === "GET" && path === "/admin/likes") {
+          const r = await db.prepare(
+            "SELECT l.album, COALESCE(c.name, 'anoniem (' || substr(l.client,1,6) || ')') AS wie, COUNT(*) AS likes, MAX(l.created) AS laatst " +
+            "FROM likes l LEFT JOIN clients c ON c.client=l.client GROUP BY l.album, l.client ORDER BY laatst DESC").all();
+          return json(200, { likes: r.results });
+        }
         if (req.method === "GET" && path === "/admin/recent") {
           const r = await db.prepare("SELECT * FROM comments ORDER BY created DESC LIMIT 100").all();
           return json(200, { comments: r.results });

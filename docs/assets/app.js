@@ -131,7 +131,15 @@
           <textarea name="text" rows="2" maxlength="1000" placeholder="Schrijf een reactie…" required></textarea>
           <div class="row"><input name="name" maxlength="40" placeholder="Je naam" autocomplete="given-name" required><button type="submit">Plaatsen</button></div>
         </form>
-      </aside>`;
+      </aside>
+      <div class="lb-ask" hidden>
+        <form class="lb-ask-card">
+          <h2>Wie ben je?</h2>
+          <p>Dan weet ${escHtml((SITE.owner || "de maker").split(" ")[0])} van wie de like komt. Dit vragen we maar één keer.</p>
+          <input name="n" maxlength="40" placeholder="Je naam" autocomplete="given-name">
+          <div class="row"><button type="button" class="skip">Overslaan</button><button type="submit">Opslaan</button></div>
+        </form>
+      </div>`;
     document.body.append(lb);
     const el = {
       img: $(".lb-img", lb), count: $(".lb-count", lb), prev: $(".lb-prev", lb), next: $(".lb-next", lb),
@@ -272,16 +280,34 @@
       el.note.textContent = list.length ? "" : "Nog geen reacties. Wees de eerste!";
     }
 
+    const ask = $(".lb-ask", lb), askForm = $(".lb-ask-card", lb);
+    function askName() {
+      return new Promise((resolve) => {
+        ask.hidden = false;
+        askForm.elements.n.value = "";
+        setTimeout(() => askForm.elements.n.focus(), 50);
+        const done = (name) => {
+          ask.hidden = true;
+          askForm.onsubmit = null; $(".skip", ask).onclick = null;
+          if (name) { store.set("fa_name", name); el.form.elements.name.value = name; } else store.set("fa_anon", "1");
+          resolve();
+        };
+        askForm.onsubmit = (e) => { e.preventDefault(); done(askForm.elements.n.value.trim() || null); };
+        $(".skip", ask).onclick = () => done(null);
+      });
+    }
+
     async function toggleLike(viaDouble = false) {
-      if (!state.on) return;
+      if (!state.on || !ask.hidden) return;
       const p = photos[cur], k = key(p);
       const was = state.mine.has(k);
       if (viaDouble) { el.pop.classList.remove("go"); void el.pop.offsetWidth; el.pop.classList.add("go"); if (was) return; }
+      if (!was && !store.get("fa_name") && !store.get("fa_anon")) await askName();
       was ? state.mine.delete(k) : state.mine.add(k);
       state.likes[k] = Math.max(0, (state.likes[k] || 0) + (was ? -1 : 1));
       paintActions(); paintTile(p); paintHead();
       try {
-        const d = await api("/like", { method: "POST", body: { photo: k, client: clientId } });
+        const d = await api("/like", { method: "POST", body: { photo: k, client: clientId, name: store.get("fa_name") || "" } });
         state.likes[k] = d.count; d.liked ? state.mine.add(k) : state.mine.delete(k);
       } catch (e) {
         was ? state.mine.add(k) : state.mine.delete(k);
@@ -346,7 +372,9 @@
     }, { passive: true });
 
     document.addEventListener("keydown", (e) => {
-      if (lb.hidden || e.target.closest("input, textarea")) return;
+      if (lb.hidden) return;
+      if (!ask.hidden) { if (e.key === "Escape") $(".skip", ask).click(); return; }
+      if (e.target.closest("input, textarea")) return;
       if (e.key === "ArrowRight") el.next.click();
       else if (e.key === "ArrowLeft") el.prev.click();
       else if (e.key === "Escape") { panelMode && window.innerWidth <= 820 ? setPanel(null) : close(); }
