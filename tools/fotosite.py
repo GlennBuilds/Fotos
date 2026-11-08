@@ -221,6 +221,8 @@ ICON = {
     "back": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
     "search": '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
     "pin": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+    "chev": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4.5 7.5 12l7.5 7.5"/></svg>',
+    "chevr": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5 16.5 12 9 19.5"/></svg>',
     "mark": '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/><path d="M16 3v9M28.4 12l-8.6 2.8M23.6 26.5l-5.3-7.3M8.4 26.5l5.3-7.3M3.6 12l8.6 2.8"/></svg>',
 }
 
@@ -235,8 +237,8 @@ def page(site, *, title, description, og_image, url, root, body_class, body, dat
 <title>{esc(full_title)}</title>
 <meta name="description" content="{esc(description)}">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#f5f3ee" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121210" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="{esc(site['title'])} · {esc(site['owner'])}">
 <meta property="og:title" content="{esc(title)}">
@@ -265,11 +267,15 @@ def page(site, *, title, description, og_image, url, root, body_class, body, dat
 
 
 def header(site, root, back=False):
-    left = (f'<a class="back" href="{root}">{ICON["back"]}<span>Alle albums</span></a>' if back else "")
+    if back:
+        return f"""<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="back" href="{root}">{ICON["chev"]}<span>Albums</span></a>
+  </div>
+</header>"""
     return f"""<header class="topbar">
   <div class="wrap topbar-in">
-    <a class="brand" href="{root}">{ICON["mark"]}<span><b>{esc(site['title'])}</b><small>{esc(site['owner'])}</small></span></a>
-    {left}
+    <a class="brand" href="{root}">{esc(site['title'])}</a>
   </div>
 </header>"""
 
@@ -277,7 +283,7 @@ def header(site, root, back=False):
 def footer(site):
     year = dt.date.today().year
     return f"""<footer class="footer"><div class="wrap">
-  <p>Foto's: {esc(site['owner'])} · © {year}</p>
+  <p>© {year} {esc(site['owner'])}</p>
 </div></footer>"""
 
 
@@ -343,14 +349,12 @@ def card(a, root, big=False):
     img = f"{root}img/{a['slug']}/{c['id']}-{'lg' if big else 'sm'}.jpg"
     search = " ".join([a["title"], a.get("place", ""), a.get("category", ""), a["date_label"], a.get("description", "")])
     search = unicodedata.normalize("NFKD", search.lower()).encode("ascii", "ignore").decode()
-    place = f'<span class="place">{ICON["pin"]}{esc(a["place"])}</span>' if a.get("place") else ""
+    sub = " · ".join(x for x in [a.get("place"), a["date_label"]] if x)
     return f"""<a class="card" href="{root}album/{a['slug']}/" data-cat="{esc(a.get('category', ''))}" data-search="{esc(search)}">
-  <div class="card-img"><img src="{img}" alt="" loading="lazy" decoding="async" width="{c['sw']}" height="{c['sh']}"></div>
-  <div class="card-body">
-    <span class="kicker">{esc(a.get('category', ''))}</span>
-    <h3>{esc(a['title'])}</h3>
-    <p class="meta">{place}<span>{esc(a['date_label'])}</span><span>{len(a['photos'])} foto's</span></p>
-  </div>
+  <img src="{img}" alt="" loading="lazy" decoding="async" width="{c['sw']}" height="{c['sh']}">
+  <span class="card-shade"></span>
+  <span class="card-count">{len(a['photos'])}</span>
+  <span class="card-text"><h3>{esc(a['title'])}</h3><p>{esc(sub)}</p></span>
 </a>"""
 
 
@@ -361,39 +365,39 @@ def write_home(site, base, albums):
     if albums:
         h = albums[0]
         c = h["cover_p"]
-        place = f'<span>{ICON["pin"]}{esc(h["place"])}</span>' if h.get("place") else ""
+        meta = " · ".join(x for x in [h.get("place"), h["date_label"], f"{len(h['photos'])} foto's"] if x)
         body.append(f"""<section class="hero">
   <a class="hero-link" href="album/{h['slug']}/" aria-label="Bekijk album {esc(h['title'])}">
     <img src="img/{h['slug']}/{c['id']}-lg.jpg" alt="" width="{c['w']}" height="{c['h']}" fetchpriority="high">
     <div class="hero-shade"></div>
     <div class="wrap hero-text">
-      <span class="kicker light">Nieuwste album</span>
+      <span class="eyebrow">Nieuw album</span>
       <h1>{esc(h['title'])}</h1>
-      <p class="hero-meta">{place}<span>{esc(h['date_label'])}</span><span>{len(h['photos'])} foto's</span></p>
-      <span class="btn">Bekijk album {ICON['arrow']}</span>
+      <p class="hero-meta">{esc(meta)}</p>
+      <span class="glass-btn">Bekijk album {ICON['chevr']}</span>
     </div>
   </a>
 </section>""")
     cats = sorted({a.get("category", "") for a in albums if a.get("category")})
     years = sorted({a["first"].year for a in albums}, reverse=True)
-    chips = "".join(f'<button class="chip" data-cat="{esc(c)}" aria-pressed="false">{esc(c)}</button>' for c in cats)
+    chips = "".join(f'<button class="chip" type="button" data-cat="{esc(c)}" aria-pressed="false">{esc(c)}</button>' for c in cats)
     yearnav = ""
     if len(years) > 1:
         yearnav = '<nav class="years" aria-label="Spring naar jaar">' + "".join(
             f'<a href="#jaar-{y}">{y}</a>' for y in years) + "</nav>"
     body.append(f"""<main class="wrap home">
-  <div class="intro">
+  <div class="home-head">
     <div>
-      <h2 class="title-lg">Alle albums</h2>
-      <p class="muted">{esc(site.get('tagline', ''))} · {len(albums)} album{'s' if len(albums) != 1 else ''} · {total} foto's</p>
+      <h2 class="large-title">Albums</h2>
+      <p class="subtitle">{len(albums)} album{'s' if len(albums) != 1 else ''} · {total} foto's</p>
     </div>
     {yearnav}
   </div>
   <div class="toolbar">
-    <div class="chips" role="group" aria-label="Filter op soort">
-      <button class="chip" data-cat="" aria-pressed="true">Alles</button>{chips}
+    <div class="segmented" role="group" aria-label="Filter op soort">
+      <button class="chip" type="button" data-cat="" aria-pressed="true">Alles</button>{chips}
     </div>
-    <label class="search">{ICON['search']}<input id="search" type="search" placeholder="Zoek op naam, plek of datum" autocomplete="off"></label>
+    <label class="search">{ICON['search']}<input id="search" type="search" placeholder="Zoeken" autocomplete="off"></label>
   </div>""")
     for y in years:
         ys = [a for a in albums if a["first"].year == y]
@@ -434,7 +438,7 @@ def write_album(site, base, a, newer, older):
         head = ""
         if multi and d != "?":
             dd = dt.date.fromisoformat(d)
-            head = f'<h2 class="day-h"><span>Dag {n}</span>{esc(day_label(dd))}<small>{len(ps)} foto\'s</small></h2>'
+            head = f'<h2 class="day-h">{esc(day_label(dd))}<small>{len(ps)} foto\'s</small></h2>'
         sections.append(f'<section class="day">{head}<div class="grid">{"".join(tiles)}</div></section>')
 
     def nav_card(x, label):
@@ -444,19 +448,18 @@ def write_album(site, base, a, newer, older):
         return (f'<a class="nav-card" href="{root}album/{x["slug"]}/"><img src="{root}img/{x["slug"]}/{c["id"]}-sm.jpg" alt="" loading="lazy">'
                 f'<span><small>{label}</small><b>{esc(x["title"])}</b><em>{esc(x["date_label"])}</em></span></a>')
 
-    place = f'<span>{ICON["pin"]}{esc(a["place"])}</span>' if a.get("place") else ""
+    sub = " · ".join(x for x in [a.get("place"), a["date_label"], f"{len(photos)} foto's"] if x)
     desc = f'<p class="lead">{esc(a["description"])}</p>' if a.get("description") else ""
     body = f"""{header(site, root, back=True)}
 <main class="wrap album">
   <header class="album-head">
-    <span class="kicker">{esc(a.get('category', ''))}</span>
     <h1>{esc(a['title'])}</h1>
-    <p class="meta big">{place}<span>{esc(a['date_label'])}</span><span>{len(photos)} foto's</span></p>
+    <p class="album-sub">{esc(sub)}</p>
     {desc}
     <p class="album-stats" hidden></p>
   </header>
   {''.join(sections)}
-  <nav class="album-nav" aria-label="Andere albums">{nav_card(newer, 'Nieuwer album')}{nav_card(older, 'Ouder album')}</nav>
+  <nav class="album-nav" aria-label="Andere albums">{nav_card(newer, 'Volgend album')}{nav_card(older, 'Vorig album')}</nav>
 </main>
 {footer(site)}"""
     data = {
@@ -478,17 +481,17 @@ def write_pwa(site, base):
     save_json(OUT / "manifest.webmanifest", {
         "id": "./", "name": f"{site['title']} · {site['owner']}", "short_name": site["title"], "lang": "nl",
         "start_url": "./", "scope": "./", "display": "standalone",
-        "background_color": "#f5f3ee", "theme_color": "#f5f3ee", "icons": icons})
+        "background_color": "#ffffff", "theme_color": "#ffffff", "icons": icons})
     d = OUT / "beheer"
     d.mkdir(parents=True, exist_ok=True)
     save_json(d / "manifest.webmanifest", {
         "id": "./beheer/", "name": "Fotoalbum beheer", "short_name": site["title"], "lang": "nl",
         "start_url": "../", "scope": "../", "display": "standalone",
-        "background_color": "#f5f3ee", "theme_color": "#f5f3ee",
+        "background_color": "#f5f5f7", "theme_color": "#f5f5f7",
         "icons": [{**i, "src": "../" + i["src"]} for i in icons]})
     body = f"""{header(site, "../", back=True)}
 <main class="wrap owner">
-  <header class="album-head owner-head"><div><span class="kicker">Alleen voor jou</span><h1>Beheer</h1></div><button class="back" id="refresh" type="button" onclick="location.reload()">↻ Vernieuwen</button></header>
+  <header class="owner-head"><h1>Beheer</h1><button class="back" id="refresh" type="button" onclick="location.reload()">Vernieuwen</button></header>
   <section id="setup" class="owner-card setup"></section>
   <section id="dash" hidden></section>
 </main>"""
@@ -499,7 +502,7 @@ def write_pwa(site, base):
 
 def write_404(site, base):
     body = f"""{header(site, base)}
-<main class="wrap notfound"><h1>Deze pagina bestaat niet (meer)</h1><p><a class="btn dark" href="{base}">Naar alle albums {ICON['arrow']}</a></p></main>"""
+<main class="wrap notfound"><h1>Deze pagina bestaat niet (meer)</h1><p><a class="btn" href="{base}">Naar de albums</a></p></main>"""
     out = page(site, title="Niet gevonden", description="", og_image="", url=base, root=base, body_class="page-404",
                body=body, data_json="{}")
     (OUT / "404.html").write_text(out, "utf-8")

@@ -68,6 +68,10 @@
 
   /* ------------------------------------------------------------ home */
   function initHome() {
+    const top = $(".topbar"), hero = $(".hero");
+    const solid = () => top && top.classList.toggle("solid", !hero || window.scrollY > hero.offsetHeight - 60);
+    solid();
+    window.addEventListener("scroll", solid, { passive: true });
     const chips = $$(".chip");
     const q = $("#search");
     const cards = $$(".card[data-cat]");
@@ -107,7 +111,7 @@
     lb.setAttribute("role", "dialog"); lb.setAttribute("aria-modal", "true"); lb.setAttribute("aria-label", "Fotoweergave");
     lb.innerHTML = `
       <div class="lb-stage">
-        <div class="lb-top"><span class="lb-count"></span><button class="lb-btn lb-close" aria-label="Sluiten">${I.close}</button></div>
+        <div class="lb-top"><button class="lb-btn lb-close" aria-label="Sluiten">${I.close}</button><div class="lb-title"></div><span class="lb-count"></span></div>
         <button class="lb-btn lb-nav lb-prev" aria-label="Vorige foto">${I.prev}</button>
         <button class="lb-btn lb-nav lb-next" aria-label="Volgende foto">${I.next}</button>
         <figure class="lb-fig"><img class="lb-img" alt=""><div class="lb-pop">${I.heart}</div></figure>
@@ -227,7 +231,11 @@
     function show(i, dir = 0) {
       cur = (i + photos.length) % photos.length;
       const p = photos[cur];
-      el.count.innerHTML = `<b>${cur + 1}</b> / ${photos.length}`;
+      el.count.textContent = `${cur + 1} van ${photos.length}`;
+      if (p.taken) {
+        const t = new Date(p.taken);
+        $(".lb-title", lb).innerHTML = `<b>${t.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })}</b><small>${t.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}</small>`;
+      } else $(".lb-title", lb).innerHTML = `<b>${escHtml(A.title)}</b>`;
       el.prev.disabled = cur === 0; el.next.disabled = cur === photos.length - 1;
       const small = src(p, "sm"), large = src(p, "lg");
       el.img.classList.add("fade");
@@ -431,8 +439,6 @@
     const root = document.body.classList.contains("page-album") ? "../../" : "";
     const right = document.createElement("div");
     right.className = "top-actions";
-    const back = $(".back", bar);
-    if (back) right.append(back);
     const a = document.createElement("a");
     a.className = "owner-btn";
     a.href = `${root}beheer/`;

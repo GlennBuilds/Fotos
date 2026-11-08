@@ -6,8 +6,8 @@
 <title>Fotoalbum · Glenn Blijs</title>
 <meta name="description" content="Foto&#x27;s om te delen met familie en vrienden">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#f5f3ee" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121210" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Fotoalbum · Glenn Blijs">
 <meta property="og:title" content="Fotoalbum">
@@ -23,13 +23,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Fotoalbum">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="assets/style.css?v=202611081122">
+<link rel="stylesheet" href="assets/style.css?v=202611081137">
 </head>
 <body class="page-home">
 <header class="topbar">
   <div class="wrap topbar-in">
-    <a class="brand" href=""><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/><path d="M16 3v9M28.4 12l-8.6 2.8M23.6 26.5l-5.3-7.3M8.4 26.5l5.3-7.3M3.6 12l8.6 2.8"/></svg><span><b>Fotoalbum</b><small>Glenn Blijs</small></span></a>
-    
+    <a class="brand" href="">Fotoalbum</a>
   </div>
 </header>
 <section class="hero">
@@ -37,45 +36,43 @@
     <img src="img/2026-11-07-paddestoelen-wielewaal/52-lg.jpg" alt="" width="2560" height="1707" fetchpriority="high">
     <div class="hero-shade"></div>
     <div class="wrap hero-text">
-      <span class="kicker light">Nieuwste album</span>
+      <span class="eyebrow">Nieuw album</span>
       <h1>Paddestoelen</h1>
-      <p class="hero-meta"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Landgoed Wielewaal</span><span>7 november 2026</span><span>59 foto's</span></p>
-      <span class="btn">Bekijk album <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      <p class="hero-meta">Landgoed Wielewaal · 7 november 2026 · 59 foto&#x27;s</p>
+      <span class="glass-btn">Bekijk album <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5 16.5 12 9 19.5"/></svg></span>
     </div>
   </a>
 </section>
 <main class="wrap home">
-  <div class="intro">
+  <div class="home-head">
     <div>
-      <h2 class="title-lg">Alle albums</h2>
-      <p class="muted">Foto&#x27;s om te delen met familie en vrienden · 1 album · 59 foto's</p>
+      <h2 class="large-title">Albums</h2>
+      <p class="subtitle">1 album · 59 foto's</p>
     </div>
     
   </div>
   <div class="toolbar">
-    <div class="chips" role="group" aria-label="Filter op soort">
-      <button class="chip" data-cat="" aria-pressed="true">Alles</button><button class="chip" data-cat="Natuur" aria-pressed="false">Natuur</button>
+    <div class="segmented" role="group" aria-label="Filter op soort">
+      <button class="chip" type="button" data-cat="" aria-pressed="true">Alles</button><button class="chip" type="button" data-cat="Natuur" aria-pressed="false">Natuur</button>
     </div>
-    <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="search" type="search" placeholder="Zoek op naam, plek of datum" autocomplete="off"></label>
+    <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="search" type="search" placeholder="Zoeken" autocomplete="off"></label>
   </div>
   <section class="year" id="jaar-2026">
     <h2 class="year-h"><span>2026</span><small>1 album</small></h2>
     <div class="cards"><a class="card" href="album/2026-11-07-paddestoelen-wielewaal/" data-cat="Natuur" data-search="paddestoelen landgoed wielewaal natuur 7 november 2026 ">
-  <div class="card-img"><img src="img/2026-11-07-paddestoelen-wielewaal/52-sm.jpg" alt="" loading="lazy" decoding="async" width="900" height="600"></div>
-  <div class="card-body">
-    <span class="kicker">Natuur</span>
-    <h3>Paddestoelen</h3>
-    <p class="meta"><span class="place"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Landgoed Wielewaal</span><span>7 november 2026</span><span>59 foto's</span></p>
-  </div>
+  <img src="img/2026-11-07-paddestoelen-wielewaal/52-sm.jpg" alt="" loading="lazy" decoding="async" width="900" height="600">
+  <span class="card-shade"></span>
+  <span class="card-count">59</span>
+  <span class="card-text"><h3>Paddestoelen</h3><p>Landgoed Wielewaal · 7 november 2026</p></span>
 </a></div>
   </section>
   <p id="empty" class="empty" hidden>Geen albums gevonden.</p>
 </main>
 <footer class="footer"><div class="wrap">
-  <p>Foto's: Glenn Blijs · © 2026</p>
+  <p>© 2026 Glenn Blijs</p>
 </div></footer>
 <script type="application/json" id="site-data">{"api": "https://fotoalbum-api.glennbuilds.workers.dev", "title": "Fotoalbum", "owner": "Glenn Blijs", "vapid": "BFu1TZY3sKF83u26KjvvBQ8EnadUFc5NveF6qiBNms3tX4vy3n6N7NVZ3670zwaqdDp9XOVEssO_TxUc2N9Slt4"}</script>
 <script type="application/json" id="page-data">{}</script>
-<script src="assets/app.js?v=202611081122" defer></script>
+<script src="assets/app.js?v=202611081137" defer></script>
 </body>
 </html>
