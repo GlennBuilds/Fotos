@@ -274,7 +274,6 @@ def footer(site):
     year = dt.date.today().year
     return f"""<footer class="footer"><div class="wrap">
   <p>Foto's: {esc(site['owner'])} · © {year}</p>
-  <p class="muted">Gemaakt om te delen met familie en vrienden. Graag niet verder verspreiden zonder te vragen.</p>
 </div></footer>"""
 
 
@@ -441,13 +440,12 @@ def write_album(site, base, a, newer, older):
 
     place = f'<span>{ICON["pin"]}{esc(a["place"])}</span>' if a.get("place") else ""
     desc = f'<p class="lead">{esc(a["description"])}</p>' if a.get("description") else ""
-    cams = sorted({p.get("camera") for p in photos if p.get("camera")})
     body = f"""{header(site, root, back=True)}
 <main class="wrap album">
   <header class="album-head">
     <span class="kicker">{esc(a.get('category', ''))}</span>
     <h1>{esc(a['title'])}</h1>
-    <p class="meta big">{place}<span>{esc(a['date_label'])}</span><span>{len(photos)} foto's</span>{''.join(f'<span class="cam">{esc(c)}</span>' for c in cams)}</p>
+    <p class="meta big">{place}<span>{esc(a['date_label'])}</span><span>{len(photos)} foto's</span></p>
     {desc}
     <p class="album-stats" hidden></p>
   </header>
