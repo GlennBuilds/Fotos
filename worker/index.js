@@ -10,8 +10,59 @@
 const PHOTO_RE = /^[a-z0-9-]{1,80}\/[a-z0-9-]{1,40}$/;
 const ALBUM_RE = /^[a-z0-9-]{1,80}$/;
 
+// ---- meldingen via ntfy (https://ntfy.sh); topic staat als secret NTFY_TOPIC
+let titleCache = null, titleCacheAt = 0;
+async function albumTitle(env, slug) {
+  try {
+    if (!titleCache || Date.now() - titleCacheAt > 3600000) {
+      const r = await fetch(env.SITE_URL + "albums.json", { cf: { cacheTtl: 300 } });
+      titleCache = r.ok ? await r.json() : {};
+      titleCacheAt = Date.now();
+    }
+  } catch (e) { titleCache = titleCache || {}; }
+  return titleCache[slug] || slug.replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/-/g, " ");
+}
+async function notify(env, { title, message, tags, click }) {
+  if (!env.NTFY_TOPIC) return;
+  await fetch("https://ntfy.sh/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ topic: env.NTFY_TOPIC, title, message, tags, click }),
+  });
+}
+const photoUrl = (env, photo) => {
+  const [slug, id] = photo.split("/");
+  return `${env.SITE_URL}album/${slug}/#${id}`;
+};
+
+// Gebundelde like-melding: draait elke 10 minuten via cron.
+async function likeDigest(env) {
+  const db = env.DB;
+  const last = Number(await db.prepare("SELECT value FROM meta WHERE key='likes_notified'").first("value")) || Date.now() - 600000;
+  const rows = (await db.prepare("SELECT photo, album, COUNT(*) AS n, MAX(created) AS t FROM likes WHERE created>? GROUP BY photo ORDER BY n DESC")
+    .bind(last).all()).results;
+  if (!rows.length) return;
+  const newest = Math.max(...rows.map((r) => r.t));
+  await db.prepare("INSERT INTO meta (key, value) VALUES ('likes_notified', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+    .bind(String(newest)).run();
+  const total = rows.reduce((a, r) => a + r.n, 0);
+  const albums = [...new Set(rows.map((r) => r.album))];
+  const names = await Promise.all(albums.map((a) => albumTitle(env, a)));
+  const fotos = rows.slice(0, 6).map((r) => `foto ${r.photo.split("/")[1]}${r.n > 1 ? ` (${r.n}×)` : ""}`).join(", ");
+  await notify(env, {
+    title: `❤️ ${total} nieuwe like${total === 1 ? "" : "s"} · ${names.join(", ")}`,
+    message: `${fotos}${rows.length > 6 ? " …" : ""}`,
+    tags: ["heart"],
+    click: rows.length === 1 ? photoUrl(env, rows[0].photo) : `${env.SITE_URL}album/${albums[0]}/`,
+  });
+}
+
 export default {
-  async fetch(req, env) {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(likeDigest(env));
+  },
+
+  async fetch(req, env, ctx) {
     const origin = req.headers.get("Origin") || "";
     const allowed = (env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
     const cors = {
@@ -81,6 +132,12 @@ export default {
         const r = await db
           .prepare("INSERT INTO comments (photo, album, name, text, client, created) VALUES (?,?,?,?,?,?)")
           .bind(photo, album, name, text, client, now).run();
+        ctx.waitUntil(albumTitle(env, album).then((t) => notify(env, {
+          title: `💬 ${name} · ${t}`,
+          message: text,
+          tags: ["speech_balloon"],
+          click: photoUrl(env, photo),
+        })).catch(() => {}));
         return json(200, { comment: { id: r.meta.last_row_id, name, text, created: now } });
       }
 

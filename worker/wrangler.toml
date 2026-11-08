@@ -4,8 +4,12 @@ compatibility_date = "2026-10-01"
 
 [vars]
 ALLOWED_ORIGINS = "https://glennbuilds.github.io,http://localhost:8765"
+SITE_URL = "https://glennbuilds.github.io/Fotos/"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "fotoalbum"
 database_id = "53fb17ee-46d8-4268-aac5-352bfb66f83b"
+
+[triggers]
+crons = ["*/10 * * * *"]

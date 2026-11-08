@@ -328,6 +328,7 @@ def build():
         if d.is_dir() and d.name not in live:
             shutil.rmtree(d)
     write_home(site, base, albums)
+    save_json(OUT / "albums.json", {x["slug"]: x["title"] for x in albums})  # gebruikt door worker voor meldingen
     write_404(site, base)
     print(f"Gebouwd: {len(albums)} album(s) → {OUT}")
 

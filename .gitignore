@@ -11,3 +11,4 @@ worker/node_modules/
 .claude/
 
 worker/.admin-key
+worker/.ntfy-topic

@@ -20,3 +20,8 @@ CREATE TABLE IF NOT EXISTS comments (
 CREATE INDEX IF NOT EXISTS comments_photo ON comments (photo, created);
 CREATE INDEX IF NOT EXISTS comments_album ON comments (album);
 CREATE INDEX IF NOT EXISTS comments_client ON comments (client, created);
+
+CREATE TABLE IF NOT EXISTS meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT
+);
