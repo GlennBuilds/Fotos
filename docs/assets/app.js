@@ -155,9 +155,22 @@
       const s = $(".album-stats"); if (!s || !state.on) return;
       const l = Object.values(state.likes).reduce((a, b) => a + b, 0);
       const c = Object.values(state.comments).reduce((a, b) => a + b, 0);
-      s.innerHTML = `<span class="h">${I.heart}${l} ${l === 1 ? "like" : "likes"}</span><span>${I.talk}${c} ${c === 1 ? "reactie" : "reacties"}</span>`;
+      const on = document.documentElement.classList.contains("show-counts");
+      s.innerHTML = `<span class="h">${I.heart}${l} ${l === 1 ? "like" : "likes"}</span><span>${I.talk}${c} ${c === 1 ? "reactie" : "reacties"}</span>` +
+        `<button class="switch" type="button" role="switch" aria-checked="${on}"><i></i>Toon bij foto's</button>`;
       s.hidden = !(l || c);
     }
+    function setCounts(on) {
+      document.documentElement.classList.toggle("show-counts", on);
+      store.set("fa_counts", on ? "1" : "0");
+      const b = $(".album-stats .switch");
+      if (b) b.setAttribute("aria-checked", String(on));
+    }
+    document.documentElement.classList.toggle("show-counts", store.get("fa_counts") === "1");
+    const statsEl = $(".album-stats");
+    if (statsEl) statsEl.addEventListener("click", (e) => {
+      if (e.target.closest(".switch")) setCounts(!document.documentElement.classList.contains("show-counts"));
+    });
     function paintActions() {
       const p = photos[cur]; if (!p) return;
       const k = key(p);

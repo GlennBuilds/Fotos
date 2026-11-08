@@ -122,6 +122,13 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1
 .album-stats { display: flex; gap: 18px; margin: 16px 0 0; color: var(--ink-2); font-size: .92rem; }
 .album-stats span { display: inline-flex; align-items: center; gap: 6px; }
 .album-stats .h svg { color: var(--heart); fill: var(--heart); }
+.album-stats { align-items: center; flex-wrap: wrap; }
+.switch { display: inline-flex; align-items: center; gap: 8px; margin-left: 4px; padding: 4px 4px 4px 4px; border: 0; background: none; color: var(--ink-2); font-size: .88rem; cursor: pointer; }
+.switch i { position: relative; width: 34px; height: 20px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); transition: background .2s; }
+.switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--ink-3); transition: transform .2s, background .2s; }
+.switch[aria-checked="true"] i { background: var(--ink); border-color: var(--ink); }
+.switch[aria-checked="true"] i::after { transform: translateX(14px); background: var(--bg); }
+.switch:hover { color: var(--ink); }
 .day + .day { margin-top: 44px; }
 .day-h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; font: 500 1.35rem/1.2 var(--serif); margin: 0 0 16px; }
 .day-h span { font: 600 .72rem var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
@@ -138,7 +145,8 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1
 .tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.2, .7, .2, 1), filter .3s; }
 .tile:hover img { transform: scale(1.035); }
 .tile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 60%, rgba(0,0,0,.45)); opacity: 0; transition: opacity .3s; }
-.tile:hover::after, .tile.has-badges::after { opacity: 1; }
+.tile:hover::after, .show-counts .tile.has-badges::after { opacity: 1; }
+html:not(.show-counts) .badges { display: none; }
 .badges { position: absolute; z-index: 1; right: 8px; bottom: 7px; display: flex; gap: 10px; color: #fff; font-size: .78rem; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
 .badges span { display: inline-flex; align-items: center; gap: 4px; }
 .badges .h svg { fill: #fff; }
