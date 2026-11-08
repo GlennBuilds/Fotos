@@ -23,12 +23,15 @@ async function albumTitle(env, slug) {
   return titleCache[slug] || slug.replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/-/g, " ");
 }
 async function notify(env, { title, message, tags, click }) {
-  if (!env.NTFY_TOPIC) return;
-  await fetch("https://ntfy.sh/", {
+  if (!env.NTFY_TOPIC) return { status: 0, body: "geen NTFY_TOPIC" };
+  const r = await fetch("https://ntfy.sh/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ topic: env.NTFY_TOPIC, title, message, tags, click }),
   });
+  const body = await r.text();
+  if (!r.ok) console.log("ntfy fout", r.status, body);
+  return { status: r.status, body: body.slice(0, 300) };
 }
 const photoUrl = (env, photo) => {
   const [slug, id] = photo.split("/");
@@ -45,8 +48,6 @@ async function likeDigest(env) {
     .bind(last).all()).results;
   if (!rows.length) return;
   const newest = Math.max(...rows.map((r) => r.created));
-  await db.prepare("INSERT INTO meta (key, value) VALUES ('likes_notified', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
-    .bind(String(newest)).run();
   const total = rows.length;
   const albums = [...new Set(rows.map((r) => r.album))];
   const titles = await Promise.all(albums.map((a) => albumTitle(env, a)));
@@ -62,7 +63,7 @@ async function likeDigest(env) {
     ? `${p.name}: foto ${p.photos[0]}`
     : `${p.name}: ${p.photos.length} foto's`);
   const single = people.size === 1 ? [...people.values()][0] : null;
-  await notify(env, {
+  const res = await notify(env, {
     title: single
       ? `❤️ ${single.name} vond ${total === 1 ? "een foto" : `${total} foto's`} leuk · ${titles.join(", ")}`
       : `❤️ ${total} nieuwe likes · ${titles.join(", ")}`,
@@ -70,6 +71,11 @@ async function likeDigest(env) {
     tags: ["heart"],
     click: total === 1 ? photoUrl(env, rows[0].photo) : `${env.SITE_URL}album/${albums[0]}/`,
   });
+  // alleen als verstuurd: anders volgende ronde opnieuw proberen
+  if (res.status >= 200 && res.status < 300) {
+    await db.prepare("INSERT INTO meta (key, value) VALUES ('likes_notified', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+      .bind(String(newest)).run();
+  }
 }
 const saveName = (db, client, name, now) =>
   db.prepare("INSERT INTO clients (client, name, updated) VALUES (?,?,?) ON CONFLICT(client) DO UPDATE SET name=excluded.name, updated=excluded.updated")
@@ -165,6 +171,9 @@ export default {
       if (path.startsWith("/admin/")) {
         const auth = req.headers.get("Authorization") || "";
         if (!env.ADMIN_KEY || auth !== `Bearer ${env.ADMIN_KEY}`) return json(401, { error: "Geen toegang" });
+        if (req.method === "POST" && path === "/admin/test-notify") {
+          return json(200, await notify(env, { title: "Test vanuit de worker", message: "Als je dit ziet, werken meldingen vanuit Cloudflare.", tags: ["white_check_mark"] }));
+        }
         if (req.method === "GET" && path === "/admin/likes") {
           const r = await db.prepare(
             "SELECT l.album, COALESCE(c.name, 'anoniem (' || substr(l.client,1,6) || ')') AS wie, COUNT(*) AS likes, MAX(l.created) AS laatst " +
