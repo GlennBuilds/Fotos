@@ -312,11 +312,14 @@ def build():
             print(f"  overgeslagen (nog niet gesynct): {a['slug']}")
             continue
         photos = man["photos"]
-        dets = load_json(DETS / f"{a['slug']}.json", {"fotos": {}})["fotos"]
+        detfile = load_json(DETS / f"{a['slug']}.json", {"fotos": {}})
+        dets, same = detfile.get("fotos", {}), detfile.get("zelfde_vondst", {})
         for p in photos:
             p.pop("sp", None)
             if p["id"] in dets:
                 p["sp"] = dets[p["id"]]
+            elif same.get(p["id"]) in dets:
+                p["sp"] = {**dets[same[p["id"]]], "via": same[p["id"]]}
         first, last = album_meta(a, photos)
         cover = pick_cover(a, photos)
         albums.append({**a, "photos": photos, "first": first, "last": last, "cover_p": cover,

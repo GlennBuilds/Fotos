@@ -254,7 +254,8 @@
         const sci = p.sp.sci.replace(/\s+sl,?\s*incl\..*$/i, " s.l.");
         spBox.innerHTML = `<b>${escHtml(spName(p.sp))}</b>` +
           (p.sp.nl ? `<i>${escHtml(sci)}</i>` : "") +
-          `<span>${kind} · ${p.sp.zeker ? "zeker" : "onzeker"} gedetermineerd op waarneming.nl</span>` +
+          `<span>${kind} · ${p.sp.zeker ? "zeker" : "onzeker"} gedetermineerd op waarneming.nl` +
+          (p.sp.via ? (photos.some((x) => x.id === p.sp.via) ? ` (via <a class="via" href="#${escHtml(p.sp.via)}">een andere foto van deze vondst</a>)` : " (via een andere foto van deze vondst)") : "") + `</span>` +
           (p.sp.url ? `<a href="${escHtml(p.sp.url)}" target="_blank" rel="noopener">Over deze soort op waarneming.nl ›</a>` : "");
       }
       el.prev.disabled = cur === 0; el.next.disabled = cur === photos.length - 1;

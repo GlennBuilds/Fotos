@@ -246,5 +246,24 @@
       "niveau": "Soort",
       "zeker": false
     }
-  }
+  },
+  "zelfde_vondst": {
+    "5": "3",
+    "8": "7",
+    "29": "28",
+    "30": "28",
+    "31": "28",
+    "36": "35",
+    "40": "39",
+    "47": "48",
+    "49": "48",
+    "57": "56",
+    "60": "61",
+    "66": "65",
+    "68": "67",
+    "75": "77",
+    "76": "77",
+    "83": "82"
+  },
+  "zelfde_vondst_toelichting": "Foto's van dezelfde vondst (zelfde exemplaar/groep, binnen enkele minuten, visueel gecontroleerd 08-11-2026) krijgen de naam van de gedetermineerde foto."
 }
