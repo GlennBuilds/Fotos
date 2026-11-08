@@ -111,6 +111,7 @@
         <button class="lb-btn lb-nav lb-prev" aria-label="Vorige foto">${I.prev}</button>
         <button class="lb-btn lb-nav lb-next" aria-label="Volgende foto">${I.next}</button>
         <figure class="lb-fig"><img class="lb-img" alt=""><div class="lb-pop">${I.heart}</div></figure>
+        <div class="lb-who" hidden></div>
         <div class="lb-bar">
           <button class="lb-act like" aria-pressed="false" aria-label="Vind ik leuk">${I.heart}<span class="n">0</span></button>
           <button class="lb-act talk" aria-expanded="false" aria-label="Reacties">${I.talk}<span class="n">0</span></button>
@@ -179,9 +180,33 @@
     if (statsEl) statsEl.addEventListener("click", (e) => {
       if (e.target.closest(".switch")) setCounts(!document.documentElement.classList.contains("show-counts"));
     });
+    // Alleen voor Glenn (gekoppeld toestel, zie /beheer/): wie heeft deze foto geliket
+    const ownerToken = store.get("fa_owner");
+    const who = {};
+    async function loadWho() {
+      if (!ownerToken || !state.on) return;
+      try {
+        const r = await fetch(API + "/owner/overview", { headers: { Authorization: `Bearer ${ownerToken}` } });
+        if (!r.ok) return;
+        const d = await r.json();
+        Object.keys(who).forEach((k) => delete who[k]);
+        d.likes.filter((x) => x.album === A.slug).forEach((x) => String(x.fotos || "").split(",").forEach((f) => {
+          if (f) (who[`${A.slug}/${f}`] = who[`${A.slug}/${f}`] || []).push(x.wie);
+        }));
+        paintActions();
+      } catch (e) { /* niet erg */ }
+    }
+    function paintWho() {
+      const box = $(".lb-who", lb), p = photos[cur];
+      const names = p && who[key(p)];
+      box.hidden = !ownerToken || !names || !names.length;
+      if (!box.hidden) box.innerHTML = `${I.heart}<span>${names.map(escHtml).join(", ")}</span>`;
+    }
+
     function paintActions() {
       const p = photos[cur]; if (!p) return;
       const k = key(p);
+      paintWho();
       el.like.setAttribute("aria-pressed", String(state.mine.has(k)));
       $(".n", el.like).textContent = state.likes[k] || 0;
       $(".n", el.talk).textContent = state.comments[k] || 0;
@@ -309,6 +334,7 @@
       try {
         const d = await api("/like", { method: "POST", body: { photo: k, client: clientId, name: store.get("fa_name") || "" } });
         state.likes[k] = d.count; d.liked ? state.mine.add(k) : state.mine.delete(k);
+        if (ownerToken) loadWho();
       } catch (e) {
         was ? state.mine.add(k) : state.mine.delete(k);
         state.likes[k] = Math.max(0, (state.likes[k] || 0) + (was ? 1 : -1));
@@ -386,6 +412,7 @@
     });
 
     loadStats();
+    loadWho();
     const start = photos.findIndex((p) => `#${p.id}` === location.hash);
     if (start >= 0) {
       history.replaceState(null, "", location.pathname + location.search);

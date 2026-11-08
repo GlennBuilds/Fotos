@@ -124,7 +124,18 @@
         const id = c.photo.split("/")[1];
         return `<li><div class="who"><b>${esc(c.name)}</b><span class="muted"> · ${ago(c.created)} · <a href="../album/${esc(c.album)}/#${esc(id)}">${esc(d.titles[c.album] || c.album)}, foto ${esc(id)}</a></span></div><p>${esc(c.text)}</p></li>`;
       }).join("")}</ul>` : `<p class="muted">Nog geen reacties.</p>`;
-      box.innerHTML = `<h2>Wie heeft er geliket</h2>${likeHtml}<h2>Reacties</h2>${comHtml}`;
+      // per foto: wie heeft geliket (meeste likes eerst)
+      const perPhoto = {};
+      d.likes.forEach((r) => String(r.fotos || "").split(",").filter(Boolean).forEach((f) => {
+        const k = `${r.album}/${f}`;
+        (perPhoto[k] = perPhoto[k] || { album: r.album, id: f, names: [] }).names.push(r.wie);
+      }));
+      const photoRows = Object.values(perPhoto).sort((a, b) => b.names.length - a.names.length || a.id - b.id);
+      const photoHtml = photoRows.length ? `<ul class="per-photo">${photoRows.map((p) => `<li>
+          <a class="thumb" href="../album/${esc(p.album)}/#${esc(p.id)}"><img src="../img/${esc(p.album)}/${esc(p.id)}-sm.jpg" alt="Foto ${esc(p.id)}" loading="lazy"></a>
+          <div><b>${p.names.length} ${p.names.length === 1 ? "like" : "likes"}</b><span class="muted"> · ${esc(d.titles[p.album] || p.album)}, foto ${esc(p.id)}</span>
+          <div class="names">${p.names.map(esc).join(", ")}</div></div></li>`).join("")}</ul>` : `<p class="muted">Nog geen likes.</p>`;
+      box.innerHTML = `<h2>Per foto</h2>${photoHtml}<h2>Per persoon</h2>${likeHtml}<h2>Reacties</h2>${comHtml}`;
     } catch (err) { box.innerHTML = `<p class="err">${esc(err.message)}</p>`; if (!token) render(); }
   }
 
