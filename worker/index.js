@@ -38,7 +38,8 @@ const photoUrl = (env, photo) => {
 // Gebundelde like-melding: draait elke 10 minuten via cron.
 async function likeDigest(env) {
   const db = env.DB;
-  const last = Number(await db.prepare("SELECT value FROM meta WHERE key='likes_notified'").first("value")) || Date.now() - 600000;
+  const stored = await db.prepare("SELECT value FROM meta WHERE key='likes_notified'").first("value");
+  const last = stored == null ? Date.now() - 600000 : Number(stored);
   const rows = (await db.prepare(
     "SELECT l.photo, l.album, l.client, c.name, l.created FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.created>? ORDER BY l.created")
     .bind(last).all()).results;
