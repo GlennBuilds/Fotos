@@ -111,7 +111,6 @@
         <button class="lb-btn lb-nav lb-prev" aria-label="Vorige foto">${I.prev}</button>
         <button class="lb-btn lb-nav lb-next" aria-label="Volgende foto">${I.next}</button>
         <figure class="lb-fig"><img class="lb-img" alt=""><div class="lb-pop">${I.heart}</div></figure>
-        <div class="lb-who" hidden></div>
         <div class="lb-bar">
           <button class="lb-act like" aria-pressed="false" aria-label="Vind ik leuk">${I.heart}<span class="n">0</span></button>
           <button class="lb-act talk" aria-expanded="false" aria-label="Reacties">${I.talk}<span class="n">0</span></button>
@@ -124,6 +123,7 @@
         <div class="lb-panel-head"><h2>Reacties</h2><button class="lb-btn lb-pclose" aria-label="Paneel sluiten">${I.close}</button></div>
         <div class="lb-panel-body">
           <div class="lb-exif"></div>
+          <div class="lb-likers" hidden></div>
           <ol class="lb-comments"></ol>
           <p class="lb-note"></p>
         </div>
@@ -197,10 +197,13 @@
       } catch (e) { /* niet erg */ }
     }
     function paintWho() {
-      const box = $(".lb-who", lb), p = photos[cur];
-      const names = p && who[key(p)];
-      box.hidden = !ownerToken || !names || !names.length;
-      if (!box.hidden) box.innerHTML = `${I.heart}<span>${names.map(escHtml).join(", ")}</span>`;
+      const box = $(".lb-likers", lb), p = photos[cur];
+      const names = (p && who[key(p)]) || [];
+      box.hidden = !ownerToken || !state.on;
+      if (!box.hidden) {
+        box.innerHTML = `<b>${I.heart}Geliket door</b>` +
+          (names.length ? `<span>${names.map(escHtml).join(", ")}</span>` : `<span class="none">Nog niemand</span>`);
+      }
     }
 
     function paintActions() {
