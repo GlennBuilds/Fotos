@@ -9,3 +9,5 @@ AGENTS.md
 worker/.wrangler/
 worker/node_modules/
 .claude/
+
+worker/.admin-key
