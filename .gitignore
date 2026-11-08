@@ -1,0 +1,11 @@
+.venv/
+.dev/
+.DS_Store
+__pycache__/
+# Projectnotities blijven lokaal (repo is openbaar)
+CONTEXT.md
+DECISIONS.md
+AGENTS.md
+worker/.wrangler/
+worker/node_modules/
+.claude/
