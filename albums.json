@@ -8,5 +8,15 @@
     "description": "",
     "min_rating": 3,
     "cover": null
+  },
+  {
+    "slug": "2026-08-08-boomkikkers",
+    "source": "10. Photos/2026/2026.08.08_DeMortelen",
+    "title": "Boomkikkers",
+    "place": "De Mortelen",
+    "category": "Natuur",
+    "description": "",
+    "min_rating": 3,
+    "cover": "32"
   }
 ]
