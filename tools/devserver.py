@@ -65,6 +65,15 @@ class Handler(SimpleHTTPRequestHandler):
             l = self.db.execute("SELECT COUNT(*) FROM likes WHERE created>?", (since,)).fetchone()[0]
             c = self.db.execute("SELECT COUNT(*) FROM comments WHERE created>? AND hidden=0", (since,)).fetchone()[0]
             return self.send_json(200, {"likes": l, "comments": c})
+        if route == "/owner/timeline":
+            if self.headers.get("Authorization") != "Bearer dev-token":
+                return self.send_json(401, {"error": "Geen toegang"})
+            likes = [dict(zip(("photo", "album", "pk", "wie", "created"), r)) for r in self.db.execute(
+                f"SELECT l.photo, l.album, {PERSON} AS pk, COALESCE(MAX(c.name), ''), MIN(l.created) AS created "
+                "FROM likes l LEFT JOIN clients c ON c.client=l.client GROUP BY l.photo, pk ORDER BY created DESC LIMIT 5000")]
+            com = [dict(zip(("id", "photo", "album", "name", "text", "created"), r)) for r in
+                   self.db.execute("SELECT id, photo, album, name, text, created FROM comments WHERE hidden=0 ORDER BY created DESC LIMIT 1000")]
+            return self.send_json(200, {"likes": likes, "comments": com})
         if route == "/owner/overview":
             if self.headers.get("Authorization") != "Bearer dev-token":
                 return self.send_json(401, {"error": "Geen toegang"})

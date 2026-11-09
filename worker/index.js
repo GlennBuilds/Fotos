@@ -8,7 +8,6 @@
 //   DELETE /admin/comments/<id> (Authorization: Bearer ADMIN_KEY) -> verbergt reactie
 
 import { sendPush, b64u } from "./push.js";
-import { planDigests } from "./digest.js";
 
 const PHOTO_RE = /^[a-z0-9-]{1,80}\/[a-z0-9-]{1,40}$/;
 const ALBUM_RE = /^[a-z0-9-]{1,80}$/;
@@ -48,8 +47,7 @@ const photoUrl = (env, photo) => {
   return `${env.SITE_URL}album/${slug}/#${id}`;
 };
 
-// Like-meldingen (cron elke 10 min): één melding per persoon per dag met de dagstand, zie digest.js.
-// Status in meta.likes_state = {base, people:{persoon: laatst gemelde like}}; oude meta.likes_notified dient als startpunt.
+// Soortnamen per foto (uit de site, gemaakt door fotosite.py build) voor in meldingen.
 let namesCache = null, namesCacheAt = 0;
 async function photoNames(env) {
   try {
@@ -61,33 +59,16 @@ async function photoNames(env) {
   } catch (e) { namesCache = namesCache || {}; }
   return namesCache;
 }
-async function likeDigest(env, now = Date.now()) {
-  const db = env.DB;
-  let state = null;
-  try { state = JSON.parse(await db.prepare("SELECT value FROM meta WHERE key='likes_state'").first("value")); } catch (e) { state = null; }
-  if (!state || typeof state !== "object" || !state.people) {
-    const old = await db.prepare("SELECT value FROM meta WHERE key='likes_notified'").first("value");
-    state = { base: old == null ? now - 600000 : Number(old), people: {} };
-  }
-  const rows = (await db.prepare(
-    "SELECT l.photo, l.album, l.client, c.name, l.created FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.created>? ORDER BY l.created")
-    .bind(now - 36 * 3600000).all()).results;
-  if (!rows.length) return [];
-  const albums = [...new Set(rows.map((r) => r.album))];
-  const titles = Object.fromEntries(await Promise.all(albums.map(async (a) => [a, await albumTitle(env, a)])));
-  const plans = planDigests(rows, state, now, { titles, names: await photoNames(env), siteUrl: env.SITE_URL });
-  const results = [];
-  for (const m of plans) {
-    const res = await notify(env, { title: m.title, message: m.body, tag: m.tag, click: m.url });
-    // alleen als verstuurd: anders volgende ronde opnieuw proberen
-    if (res.status >= 200 && res.status < 300) state.people[m.key] = m.upTo;
-    results.push({ title: m.title, body: m.body, sent: res.sent });
-  }
-  if (plans.length) {
-    await db.prepare("INSERT INTO meta (key, value) VALUES ('likes_state', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
-      .bind(JSON.stringify(state)).run();
-  }
-  return results;
+// Melding per like (direct). Vaste tag per persoon+foto: aan/uit/aan geeft geen stapel meldingen.
+async function likeNotify(env, photo, album, who) {
+  const [title, names] = await Promise.all([albumTitle(env, album), photoNames(env)]);
+  const id = photo.split("/")[1];
+  return notify(env, {
+    title: `❤️ ${who || "Iemand"} vond een foto leuk`,
+    message: `${names[photo] || `Foto ${id}`} · ${title}`,
+    tag: `l-${photo}-${(who || "").toLowerCase()}`,
+    click: photoUrl(env, photo),
+  });
 }
 const saveName = (db, client, name, now) =>
   db.prepare("INSERT INTO clients (client, name, updated) VALUES (?,?,?) ON CONFLICT(client) DO UPDATE SET name=excluded.name, updated=excluded.updated")
@@ -111,9 +92,6 @@ async function photoCount(db, photo) {
 }
 
 export default {
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(likeDigest(env));
-  },
 
   async fetch(req, env, ctx) {
     const origin = req.headers.get("Origin") || "";
@@ -186,6 +164,7 @@ export default {
           if (want && !has) {
             await db.prepare("INSERT OR IGNORE INTO likes (photo, album, client, created) VALUES (?,?,?,?)")
               .bind(photo, album, client, now).run();
+            ctx.waitUntil(likeNotify(env, photo, album, me).catch(() => {}));
           } else if (!want && has) {
             await db.prepare(`DELETE FROM likes WHERE photo=? AND client IN (${inList(devices)})`).bind(photo, ...devices).run();
           }
@@ -254,20 +233,14 @@ export default {
         if (req.method === "POST" && (route === "/test" || route === "/test-notify")) {
           return json(200, await notify(env, { title: "✅ Meldingen staan aan", message: "Je krijgt nu een melding bij nieuwe likes en reacties.", click: env.SITE_URL, tag: "test" }));
         }
-        // voorbeeld van de like-meldingen van vandaag (wijzigt de meldingsstatus niet); POST stuurt de laatste als melding
-        if (route === "/digest-preview" && (req.method === "GET" || req.method === "POST")) {
-          const rows = (await db.prepare(
-            "SELECT l.photo, l.album, l.client, c.name, l.created FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.created>? ORDER BY l.created")
-            .bind(Date.now() - 36 * 3600000).all()).results;
-          const albums = [...new Set(rows.map((r) => r.album))];
-          const titles = Object.fromEntries(await Promise.all(albums.map(async (a) => [a, await albumTitle(env, a)])));
-          const plans = rows.length ? planDigests(rows, { base: 0, people: {} }, Date.now() + 6 * 60000,
-            { titles, names: await photoNames(env), siteUrl: env.SITE_URL }).sort((a, b) => b.upTo - a.upTo) : [];
-          if (req.method === "POST" && plans[0]) {
-            const m = plans[0];
-            return json(200, { plans, sent: await notify(env, { title: m.title, message: m.body, tag: m.tag, click: m.url }) });
-          }
-          return json(200, { plans });
+        // tijdlijn voor de beheerpagina: per persoon per foto één like (eerste tijdstip) + reacties
+        if (req.method === "GET" && route === "/timeline") {
+          const [l, c] = await db.batch([
+            db.prepare(`SELECT l.photo, l.album, ${PERSON} AS pk, COALESCE(MAX(c.name), '') AS wie, MIN(l.created) AS created ` +
+              "FROM likes l LEFT JOIN clients c ON c.client=l.client GROUP BY l.photo, pk ORDER BY created DESC LIMIT 5000"),
+            db.prepare("SELECT id, photo, album, name, text, created FROM comments WHERE hidden=0 ORDER BY created DESC LIMIT 1000"),
+          ]);
+          return json(200, { likes: l.results, comments: c.results });
         }
         if (req.method === "GET" && route === "/activity") {
           const since = Number(q.get("since")) || 0;

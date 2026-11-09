@@ -76,7 +76,7 @@
     }
     if (sub && Notification.permission === "granted") {
       box.innerHTML = `<h2>Meldingen staan aan ✓</h2>
-        <p class="muted">Je krijgt een melding bij reacties (direct) en likes (gebundeld per 10 minuten).</p>
+        <p class="muted">Je krijgt meteen een melding bij elke like en reactie.</p>
         <p><button class="btn dark" id="test" type="button">Stuur testmelding</button></p><p class="err" id="err"></p>`;
       $("#test").addEventListener("click", async () => {
         try { const d = await api("/owner/test", { method: "POST" }); $("#err").textContent = d.sent ? "Verstuurd ✓" : "Niet aangekomen: " + (d.errors || []).join("; "); }
@@ -101,49 +101,134 @@
     });
   }
 
+  // ---- overzicht: tijdlijn per dag → per persoon, of per foto
+  const TZ = "Europe/Amsterdam";
+  const dayFmt = new Intl.DateTimeFormat("nl-NL", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+  const timeFmt = new Intl.DateTimeFormat("nl-NL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+  const dayKey = (ts) => dayFmt.format(ts);
+  function dayLabel(ts) {
+    const k = dayKey(ts);
+    if (k === dayKey(Date.now())) return "Vandaag";
+    if (k === dayKey(Date.now() - 86400000)) return "Gisteren";
+    const o = { timeZone: TZ, weekday: "long", day: "numeric", month: "long" };
+    if (new Date(ts).getFullYear() !== new Date().getFullYear()) o.year = "numeric";
+    const s = new Date(ts).toLocaleDateString("nl-NL", o);
+    return s[0].toUpperCase() + s.slice(1);
+  }
+  const plural = (n, one, more) => `${n} ${n === 1 ? one : more}`;
+  const ANON = "Iemand zonder naam";
+  const isNew = (ts) => prevSeen && ts > prevSeen;
+  const TABS = { tijd: "Tijdlijn", persoon: "Per persoon", foto: "Per foto" };
+  let tab = TABS[store.get("fa_beheer_tab")] ? store.get("fa_beheer_tab") : "tijd";
+  let meta = null;
+  async function siteMeta() {
+    if (meta) return meta;
+    const get = (u) => fetch(u, { cache: "no-cache" }).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+    const [titles, names] = await Promise.all([get("../albums.json"), get("../fotonamen.json")]);
+    return (meta = { titles, names });
+  }
+  function thumb(photo, m, cls = "") {
+    const [a, id] = photo.split("/");
+    const label = m.names[photo] || `Foto ${id}`;
+    return `<a class="tl-thumb${cls}" href="../album/${esc(a)}/#${esc(id)}" title="${esc(label)}"><img src="../img/${esc(a)}/${esc(id)}-sm.jpg" alt="${esc(label)}" loading="lazy"></a>`;
+  }
+
+  function timelineHtml(d, m) {
+    const days = new Map();
+    const add = (ts, pk, who, push) => {
+      const k = dayKey(ts);
+      if (!days.has(k)) days.set(k, { ts, people: new Map() });
+      const day = days.get(k);
+      day.ts = Math.max(day.ts, ts);
+      if (!day.people.has(pk)) day.people.set(pk, { who: "", likes: [], comments: [], first: ts, last: ts });
+      const p = day.people.get(pk);
+      p.first = Math.min(p.first, ts); p.last = Math.max(p.last, ts);
+      if (!p.who && who) p.who = who;
+      push(p);
+    };
+    d.likes.forEach((l) => add(l.created, l.pk, l.wie, (p) => p.likes.push(l)));
+    d.comments.forEach((c) => add(c.created, c.name.trim() ? `n:${c.name.trim().toLowerCase()}` : `r:${c.id}`, c.name, (p) => p.comments.push(c)));
+    if (!days.size) return `<p class="muted tl-empty">Nog geen likes of reacties.</p>`;
+    const MAX = 15;
+    return [...days.values()].sort((a, b) => b.ts - a.ts).map((day) => {
+      const cards = [...day.people.values()].sort((a, b) => b.last - a.last).map((p) => {
+        const likes = p.likes.sort((a, b) => a.created - b.created);
+        const albums = [...new Set([...likes, ...p.comments].map((x) => m.titles[x.album] || x.album))];
+        const sum = [likes.length ? `${plural(likes.length, "foto", "foto's")} leuk` : "", p.comments.length ? plural(p.comments.length, "reactie", "reacties") : "", albums.join(", ")].filter(Boolean).join(" · ");
+        const t1 = timeFmt.format(p.first), t2 = timeFmt.format(p.last);
+        const nieuw = [...likes, ...p.comments].some((x) => isNew(x.created));
+        const thumbs = likes.length ? `<div class="tl-thumbs">${likes.map((l, i) => thumb(l.photo, m, i >= MAX ? " hide" : "")).join("")}${likes.length > MAX ? `<button class="tl-more" type="button">+${likes.length - MAX}</button>` : ""}</div>` : "";
+        const coms = p.comments.length ? `<ul class="tl-comments">${p.comments.sort((a, b) => a.created - b.created).map((c) => `<li>${thumb(c.photo, m)}<div><p>${esc(c.text)}</p><small>${timeFmt.format(c.created)} · ${esc(m.names[c.photo] || `foto ${c.photo.split("/")[1]}`)}</small></div></li>`).join("")}</ul>` : "";
+        return `<section class="owner-card tl-card">
+          <div class="tl-head"><div>${nieuw ? '<span class="new">Nieuw</span>' : ""}<b>${esc(p.who || ANON)}</b></div><span>${t1 === t2 ? t1 : `${t1} – ${t2}`}</span></div>
+          <p class="tl-sum">${esc(sum)}</p>${thumbs}${coms}</section>`;
+      }).join("");
+      return `<h2>${esc(dayLabel(day.ts))}</h2>${cards}`;
+    }).join("");
+  }
+
+  function perPhotoHtml(d, m) {
+    const per = {};
+    d.likes.forEach((l) => (per[l.photo] = per[l.photo] || { photo: l.photo, album: l.album, names: [], last: 0 }).names.push(l.wie || ANON));
+    d.likes.forEach((l) => (per[l.photo].last = Math.max(per[l.photo].last, l.created)));
+    const rows = Object.values(per).sort((a, b) => b.names.length - a.names.length || a.photo.split("/")[1] - b.photo.split("/")[1]);
+    if (!rows.length) return `<p class="muted tl-empty">Nog geen likes.</p>`;
+    return `<h2>Meeste likes eerst</h2><ul class="per-photo">${rows.map((p) => {
+      const id = p.photo.split("/")[1];
+      return `<li>${thumb(p.photo, m, " thumb")}<div><div>${isNew(p.last) ? '<span class="new">Nieuw</span>' : ""}<b>${plural(p.names.length, "like", "likes")}</b><span class="muted"> · ${esc(m.names[p.photo] || `Foto ${id}`)}</span></div>
+        <div class="names">${p.names.map(esc).join(", ")}</div></div></li>`;
+    }).join("")}</ul>`;
+  }
+
+  // per persoon (zoals het eerdere overzicht): per album wie welke foto's leuk vond
+  function perPersonHtml(d, m) {
+    const albums = {};
+    d.likes.forEach((l) => {
+      const a = (albums[l.album] = albums[l.album] || {});
+      const p = (a[l.pk] = a[l.pk] || { pk: l.pk, who: "", ids: [], last: 0 });
+      if (!p.who && l.wie) p.who = l.wie;
+      p.ids.push(l.photo.split("/")[1]);
+      p.last = Math.max(p.last, l.created);
+    });
+    const html = Object.entries(albums).map(([album, people]) => {
+      const rows = Object.values(people).sort((a, b) => b.last - a.last);
+      const total = rows.reduce((n, p) => n + p.ids.length, 0);
+      return `<section class="owner-card"><h3><a href="../album/${esc(album)}/">${esc(m.titles[album] || album)}</a><small>${plural(total, "like", "likes")}</small></h3>
+        <ul class="people">${rows.map((p) => `<li><div class="who">${isNew(p.last) ? '<span class="new">Nieuw</span>' : ""}<b>${esc(p.who || ANON)}</b>${p.who ? "" : `<span class="muted"> · toestel ${esc(p.pk.slice(2, 8))}</span>`}<span class="muted"> · ${plural(p.ids.length, "like", "likes")} · ${ago(p.last)}</span></div>
+          <div class="fotos">${p.ids.sort((a, b) => a - b).map((id) => `<a href="../album/${esc(album)}/#${esc(id)}" title="${esc(m.names[`${album}/${id}`] || "")}">${esc(id)}</a>`).join("")}</div></li>`).join("")}</ul></section>`;
+    }).join("");
+    return html || `<p class="muted tl-empty">Nog geen likes.</p>`;
+  }
   function ago(ts) {
-    const m = Math.round((Date.now() - ts) / 60000);
-    if (m < 1) return "zojuist";
-    if (m < 60) return `${m} min geleden`;
-    const h = Math.round(m / 60); if (h < 24) return `${h} uur geleden`;
+    const min = Math.round((Date.now() - ts) / 60000);
+    if (min < 1) return "zojuist";
+    if (min < 60) return `${min} min geleden`;
+    const h = Math.round(min / 60); if (h < 24) return `${h} uur geleden`;
     return new Date(ts).toLocaleDateString("nl-NL", { day: "numeric", month: "long" });
   }
+  const bodyHtml = (d, m) => (tab === "foto" ? perPhotoHtml(d, m) : tab === "persoon" ? perPersonHtml(d, m) : timelineHtml(d, m));
 
   async function renderDash() {
     const box = $("#dash");
     if (!token) { box.hidden = true; return; }
     box.hidden = false;
-    box.innerHTML = `<p class="muted">Laden…</p>`;
+    if (!box.innerHTML) box.innerHTML = `<p class="muted">Laden…</p>`;
     try {
-      const d = await api("/owner/overview");
-      const base = SITE.base || "../";
-      const byAlbum = {};
-      d.likes.forEach((r) => (byAlbum[r.album] = byAlbum[r.album] || []).push(r));
-      const likeHtml = Object.entries(byAlbum).map(([album, rows]) => {
-        const total = rows.reduce((a, r) => a + r.likes, 0);
-        return `<section class="owner-card"><h3><a href="../album/${esc(album)}/">${esc(d.titles[album] || album)}</a><small>${total} likes</small></h3>
-          <ul class="people">${rows.map((r) => {
-            const fotos = String(r.fotos || "").split(",").filter(Boolean).sort((a, b) => a - b);
-            return `<li><div class="who">${r.laatst > prevSeen && prevSeen ? '<span class="new">Nieuw</span>' : ""}<b>${esc(r.wie)}</b>${r.wie === "Anoniem" ? `<span class="muted"> · toestel ${esc(r.toestel)}</span>` : ""}<span class="muted"> · ${r.likes} ${r.likes === 1 ? "like" : "likes"} · ${ago(r.laatst)}</span></div>
-              <div class="fotos">${fotos.map((f) => `<a href="../album/${esc(album)}/#${esc(f)}">${esc(f)}</a>`).join("")}</div></li>`;
-          }).join("")}</ul></section>`;
-      }).join("") || `<p class="muted">Nog geen likes.</p>`;
-      const comHtml = d.comments.length ? `<ul class="comments">${d.comments.map((c) => {
-        const id = c.photo.split("/")[1];
-        return `<li><div class="who">${c.created > prevSeen && prevSeen ? '<span class="new">Nieuw</span>' : ""}<b>${esc(c.name)}</b><span class="muted"> · ${ago(c.created)} · <a href="../album/${esc(c.album)}/#${esc(id)}">${esc(d.titles[c.album] || c.album)}, foto ${esc(id)}</a></span></div><p>${esc(c.text)}</p></li>`;
-      }).join("")}</ul>` : `<p class="muted">Nog geen reacties.</p>`;
-      // per foto: wie heeft geliket (meeste likes eerst)
-      const perPhoto = {};
-      d.likes.forEach((r) => String(r.fotos || "").split(",").filter(Boolean).forEach((f) => {
-        const k = `${r.album}/${f}`;
-        (perPhoto[k] = perPhoto[k] || { album: r.album, id: f, names: [] }).names.push(r.wie);
+      const [d, m] = await Promise.all([api("/owner/timeline"), siteMeta()]);
+      const people = new Set(d.likes.map((l) => l.pk)).size;
+      box.innerHTML = `<div class="segmented tl-tabs" role="group" aria-label="Weergave">
+          ${Object.entries(TABS).map(([k, v]) => `<button class="chip" type="button" data-tab="${k}" aria-pressed="${tab === k}">${v}</button>`).join("")}</div>
+        <p class="tl-total">${plural(d.likes.length, "like", "likes")} van ${plural(people, "persoon", "personen")} · ${plural(d.comments.length, "reactie", "reacties")}</p>
+        <div id="tl-body">${bodyHtml(d, m)}</div>`;
+      box.querySelectorAll(".tl-tabs .chip").forEach((b) => b.addEventListener("click", () => {
+        tab = b.dataset.tab; store.set("fa_beheer_tab", tab);
+        box.querySelectorAll(".tl-tabs .chip").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        $("#tl-body").innerHTML = bodyHtml(d, m);
       }));
-      const photoRows = Object.values(perPhoto).sort((a, b) => b.names.length - a.names.length || a.id - b.id);
-      const photoHtml = photoRows.length ? `<ul class="per-photo">${photoRows.map((p) => `<li>
-          <a class="thumb" href="../album/${esc(p.album)}/#${esc(p.id)}"><img src="../img/${esc(p.album)}/${esc(p.id)}-sm.jpg" alt="Foto ${esc(p.id)}" loading="lazy"></a>
-          <div><b>${p.names.length} ${p.names.length === 1 ? "like" : "likes"}</b><span class="muted"> · ${esc(d.titles[p.album] || p.album)}, foto ${esc(p.id)}</span>
-          <div class="names">${p.names.map(esc).join(", ")}</div></div></li>`).join("")}</ul>` : `<p class="muted">Nog geen likes.</p>`;
-      box.innerHTML = `<h2>Per foto</h2>${photoHtml}<h2>Per persoon</h2>${likeHtml}<h2>Reacties</h2>${comHtml}`;
+      box.addEventListener("click", (e) => {
+        const more = e.target.closest(".tl-more");
+        if (more) more.parentElement.classList.add("open");
+      });
       store.set("fa_seen", String(Date.now()));
     } catch (err) { box.innerHTML = `<p class="err">${esc(err.message)}</p>`; if (!token) render(); }
   }
