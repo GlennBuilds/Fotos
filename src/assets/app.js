@@ -230,6 +230,8 @@
       try {
         const d = await api(`/stats?album=${encodeURIComponent(A.slug)}&client=${encodeURIComponent(clientId)}`);
         state.likes = d.likes || {}; state.comments = d.comments || {}; state.mine = new Set(d.mine || []);
+        // naam bekend bij de server maar niet meer op dit toestel (bijv. opslag gewist): herstellen
+        if (d.name && !store.get("fa_name")) { store.set("fa_name", d.name); el.form.elements.name.value = d.name; }
         photos.forEach(paintTile); paintHead(); paintActions();
       } catch (e) { /* likes tijdelijk niet beschikbaar */ }
     }
@@ -339,6 +341,9 @@
     }
 
     const ask = $(".lb-ask", lb), askForm = $(".lb-ask-card", lb);
+    // vraag de browser de opslag (wie je bent) niet op te ruimen
+    function keepStorage() { try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { /* */ } }
+
     function askName() {
       return new Promise((resolve) => {
         ask.hidden = false;
@@ -347,7 +352,7 @@
         const done = (name) => {
           ask.hidden = true;
           askForm.onsubmit = null; $(".skip", ask).onclick = null;
-          if (name) { store.set("fa_name", name); el.form.elements.name.value = name; } else store.set("fa_anon", "1");
+          if (name) { store.set("fa_name", name); el.form.elements.name.value = name; keepStorage(); } else store.set("fa_anon", "1");
           resolve();
         };
         askForm.onsubmit = (e) => { e.preventDefault(); done(askForm.elements.n.value.trim() || null); };
@@ -365,8 +370,14 @@
       state.likes[k] = Math.max(0, (state.likes[k] || 0) + (was ? -1 : 1));
       paintActions(); paintTile(p); paintHead();
       try {
-        const d = await api("/like", { method: "POST", body: { photo: k, client: clientId, name: store.get("fa_name") || "" } });
+        const d = await api("/like", { method: "POST", body: { photo: k, client: clientId, name: store.get("fa_name") || "", like: !was } });
         state.likes[k] = d.count; d.liked ? state.mine.add(k) : state.mine.delete(k);
+        if (d.name && d.name !== store.get("fa_name")) { store.set("fa_name", d.name); el.form.elements.name.value = d.name; }
+        if (d.welcome) {
+          // herkend van een ander toestel: eerdere likes van deze persoon ophalen
+          toast(`Welkom terug, ${d.welcome}!`);
+          loadStats();
+        }
         if (ownerToken) loadWho();
       } catch (e) {
         was ? state.mine.add(k) : state.mine.delete(k);
@@ -387,7 +398,9 @@
       try {
         await api("/comments", { method: "POST", body: { photo: key(p), name, text, client: clientId, website: f.website.value } });
         f.text.value = "";
+        keepStorage();
         await loadComments();
+        loadStats();
         el.list.lastElementChild && el.list.lastElementChild.scrollIntoView({ block: "nearest", behavior: "smooth" });
       } catch (e) { toast(e.message); }
       btn.disabled = false;

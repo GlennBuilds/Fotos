@@ -8,6 +8,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+PERSON = "CASE WHEN c.name IS NOT NULL AND trim(c.name) <> '' THEN 'n:' || lower(trim(c.name)) ELSE 'c:' || l.client END"
 PHOTO_RE = re.compile(r"^[a-z0-9-]{1,80}/[a-z0-9-]{1,40}$")
 ALBUM_RE = re.compile(r"^[a-z0-9-]{1,80}$")
 
@@ -52,10 +53,11 @@ class Handler(SimpleHTTPRequestHandler):
             album, client = q.get("album", ""), q.get("client", "")
             if not ALBUM_RE.match(album):
                 return self.send_json(400, {"error": "Ongeldig album"})
-            likes = dict(self.db.execute("SELECT photo, COUNT(*) FROM likes WHERE album=? GROUP BY photo", (album,)))
+            me = (self.db.execute("SELECT name FROM clients WHERE client=?", (client,)).fetchone() or [""])[0] or ""
+            likes = dict(self.db.execute(f"SELECT l.photo, COUNT(DISTINCT {PERSON}) FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.album=? GROUP BY l.photo", (album,)))
             com = dict(self.db.execute("SELECT photo, COUNT(*) FROM comments WHERE album=? AND hidden=0 GROUP BY photo", (album,)))
-            mine = [r[0] for r in self.db.execute("SELECT photo FROM likes WHERE album=? AND client=?", (album, client))]
-            return self.send_json(200, {"likes": likes, "comments": com, "mine": mine})
+            mine = [r[0] for r in self.db.execute("SELECT DISTINCT l.photo FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.album=? AND (l.client=? OR (? <> '' AND lower(trim(c.name)) = lower(trim(?))))", (album, client, me, me))]
+            return self.send_json(200, {"likes": likes, "comments": com, "mine": mine, "name": me})
         if route == "/owner/activity":
             if self.headers.get("Authorization") != "Bearer dev-token":
                 return self.send_json(401, {"error": "Geen toegang"})
@@ -66,8 +68,8 @@ class Handler(SimpleHTTPRequestHandler):
         if route == "/owner/overview":
             if self.headers.get("Authorization") != "Bearer dev-token":
                 return self.send_json(401, {"error": "Geen toegang"})
-            rows = self.db.execute("SELECT l.album, COALESCE(c.name,'Anoniem'), l.client, COUNT(*), MAX(l.created), GROUP_CONCAT(substr(l.photo, instr(l.photo,'/')+1)) "
-                                   "FROM likes l LEFT JOIN clients c ON c.client=l.client GROUP BY l.album, l.client ORDER BY 5 DESC").fetchall()
+            rows = self.db.execute("SELECT l.album, COALESCE(MAX(c.name),'Anoniem'), MIN(l.client), COUNT(DISTINCT l.photo), MAX(l.created), GROUP_CONCAT(DISTINCT substr(l.photo, instr(l.photo,'/')+1)) "
+                                   f"FROM likes l LEFT JOIN clients c ON c.client=l.client GROUP BY l.album, {PERSON} ORDER BY 5 DESC").fetchall()
             likes = [{"album": r[0], "wie": r[1], "toestel": r[2][:6], "likes": r[3], "laatst": r[4], "fotos": r[5]} for r in rows]
             com = [dict(zip(("id", "photo", "album", "name", "text", "created"), r)) for r in
                    self.db.execute("SELECT id, photo, album, name, text, created FROM comments WHERE hidden=0 ORDER BY created DESC LIMIT 50")]
@@ -94,16 +96,27 @@ class Handler(SimpleHTTPRequestHandler):
         album = photo.split("/")[0]
         now = int(time.time() * 1000)
         if route == "/like":
-            nm = str(b.get("name", "")).strip()[:40]
-            if nm:
+            nm = " ".join(str(b.get("name", "")).split())[:40]
+            before = (self.db.execute("SELECT name FROM clients WHERE client=?", (client,)).fetchone() or [""])[0] or ""
+            welcome = ""
+            if nm and nm.lower() != before.lower():
+                known = self.db.execute("SELECT name FROM clients WHERE lower(trim(name))=lower(trim(?)) AND client<>? ORDER BY updated DESC LIMIT 1", (nm, client)).fetchone()
+                if known:
+                    nm = welcome = known[0]
                 self.db.execute("INSERT INTO clients (client, name, updated) VALUES (?,?,?) ON CONFLICT(client) DO UPDATE SET name=excluded.name, updated=excluded.updated", (client, nm, now))
-            cur = self.db.execute("DELETE FROM likes WHERE photo=? AND client=?", (photo, client))
-            liked = cur.rowcount == 0
-            if liked:
-                self.db.execute("INSERT INTO likes (photo, album, client, created) VALUES (?,?,?,?)", (photo, album, client, now))
+            me = nm or before
+            devices = [client] + ([r[0] for r in self.db.execute("SELECT client FROM clients WHERE lower(trim(name))=lower(trim(?))", (me,))] if me else [])
+            devices = list(dict.fromkeys(devices))
+            ph = ",".join("?" * len(devices))
+            has = self.db.execute(f"SELECT COUNT(*) FROM likes WHERE photo=? AND client IN ({ph})", (photo, *devices)).fetchone()[0]
+            want = b["like"] if isinstance(b.get("like"), bool) else has == 0
+            if want and not has:
+                self.db.execute("INSERT OR IGNORE INTO likes (photo, album, client, created) VALUES (?,?,?,?)", (photo, album, client, now))
+            elif not want and has:
+                self.db.execute(f"DELETE FROM likes WHERE photo=? AND client IN ({ph})", (photo, *devices))
             self.db.commit()
-            n = self.db.execute("SELECT COUNT(*) FROM likes WHERE photo=?", (photo,)).fetchone()[0]
-            return self.send_json(200, {"count": n, "liked": liked})
+            n = self.db.execute(f"SELECT COUNT(DISTINCT {PERSON}) FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.photo=?", (photo,)).fetchone()[0]
+            return self.send_json(200, {"count": n, "liked": want, "welcome": welcome, "name": me})
         if route == "/comments":
             if b.get("website"):
                 return self.send_json(200, {"ok": True})

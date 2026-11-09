@@ -57,21 +57,22 @@ async function likeDigest(env) {
     .bind(last).all()).results;
   if (!rows.length) return;
   const newest = Math.max(...rows.map((r) => r.created));
-  const total = rows.length;
   const albums = [...new Set(rows.map((r) => r.album))];
   const titles = await Promise.all(albums.map((a) => albumTitle(env, a)));
   // per persoon (of per anoniem toestel)
   const people = new Map();
   let anon = 0;
   for (const r of rows) {
-    const id = r.name ? `n:${r.name}` : `c:${r.client}`;
+    const id = r.name ? `n:${r.name.trim().toLowerCase()}` : `c:${r.client}`;
     if (!people.has(id)) people.set(id, { name: r.name || `iemand ${++anon > 1 ? anon : ""}`.trim(), photos: [] });
-    people.get(id).photos.push(r.photo.split("/")[1]);
+    const pid = r.photo.split("/")[1];
+    if (!people.get(id).photos.includes(pid)) people.get(id).photos.push(pid);
   }
   const lines = [...people.values()].map((p) => p.photos.length === 1
     ? `${p.name}: foto ${p.photos[0]}`
     : `${p.name}: ${p.photos.length} foto's`);
   const single = people.size === 1 ? [...people.values()][0] : null;
+  const total = [...people.values()].reduce((a, p) => a + p.photos.length, 0);
   const res = await notify(env, {
     title: single
       ? `❤️ ${single.name} vond ${total === 1 ? "een foto" : `${total} foto's`} leuk · ${titles.join(", ")}`
@@ -89,6 +90,23 @@ async function likeDigest(env) {
 const saveName = (db, client, name, now) =>
   db.prepare("INSERT INTO clients (client, name, updated) VALUES (?,?,?) ON CONFLICT(client) DO UPDATE SET name=excluded.name, updated=excluded.updated")
     .bind(client, name, now).run();
+const cleanName = (n) => String(n || "").replace(/\s+/g, " ").trim().slice(0, 40);
+
+// Eén persoon = alle toestellen met dezelfde naam (hoofdletters/spaties maken niet uit); zonder naam = het toestel zelf.
+const PERSON = "CASE WHEN c.name IS NOT NULL AND trim(c.name) <> '' THEN 'n:' || lower(trim(c.name)) ELSE 'c:' || l.client END";
+async function nameOf(db, client) {
+  return (await db.prepare("SELECT name FROM clients WHERE client=?").bind(client).first("name")) || "";
+}
+async function personClients(db, client, name) {
+  if (!name) return [client];
+  const r = await db.prepare("SELECT client FROM clients WHERE lower(trim(name)) = lower(trim(?))").bind(name).all();
+  return [...new Set([client, ...r.results.map((x) => x.client)])];
+}
+const inList = (arr) => arr.map(() => "?").join(",");
+async function photoCount(db, photo) {
+  return db.prepare(`SELECT COUNT(DISTINCT ${PERSON}) AS n FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.photo=?`)
+    .bind(photo).first("n");
+}
 
 export default {
   async scheduled(event, env, ctx) {
@@ -118,13 +136,15 @@ export default {
       if (req.method === "GET" && path === "/stats") {
         const album = q.get("album") || "", client = q.get("client") || "";
         if (!ALBUM_RE.test(album)) return json(400, { error: "Ongeldig album" });
+        const me = client ? await nameOf(db, client) : "";
         const [l, c, m] = await db.batch([
-          db.prepare("SELECT photo, COUNT(*) AS n FROM likes WHERE album=? GROUP BY photo").bind(album),
+          db.prepare(`SELECT l.photo, COUNT(DISTINCT ${PERSON}) AS n FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.album=? GROUP BY l.photo`).bind(album),
           db.prepare("SELECT photo, COUNT(*) AS n FROM comments WHERE album=? AND hidden=0 GROUP BY photo").bind(album),
-          db.prepare("SELECT photo FROM likes WHERE album=? AND client=?").bind(album, client),
+          db.prepare("SELECT DISTINCT l.photo FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.album=? AND (l.client=? OR (? <> '' AND lower(trim(c.name)) = lower(trim(?))))")
+            .bind(album, client, me, me),
         ]);
         const toMap = (r) => Object.fromEntries(r.results.map((x) => [x.photo, x.n]));
-        return json(200, { likes: toMap(l), comments: toMap(c), mine: m.results.map((x) => x.photo) });
+        return json(200, { likes: toMap(l), comments: toMap(c), mine: m.results.map((x) => x.photo), name: me });
       }
 
       if (req.method === "GET" && path === "/comments") {
@@ -145,20 +165,33 @@ export default {
         const now = Date.now();
 
         if (path === "/like") {
-          const likeName = String(b.name || "").trim().slice(0, 40);
-          if (likeName) await saveName(db, client, likeName, now);
-          const del = await db.prepare("DELETE FROM likes WHERE photo=? AND client=?").bind(photo, client).run();
-          const liked = del.meta.changes === 0;
-          if (liked) {
+          let likeName = cleanName(b.name);
+          const before = await nameOf(db, client);
+          let welcome = false;
+          if (likeName && likeName.toLowerCase() !== before.toLowerCase()) {
+            // nieuwe naam op dit toestel: bestaat deze persoon al (ander toestel)? dan herkennen en dezelfde schrijfwijze gebruiken
+            const known = await db.prepare("SELECT name FROM clients WHERE lower(trim(name)) = lower(trim(?)) AND client <> ? ORDER BY updated DESC LIMIT 1")
+              .bind(likeName, client).first("name");
+            if (known) { welcome = true; likeName = known; }
+            await saveName(db, client, likeName, now);
+          }
+          const me = likeName || before;
+          const devices = await personClients(db, client, me);
+          const has = await db.prepare(`SELECT COUNT(*) AS n FROM likes WHERE photo=? AND client IN (${inList(devices)})`)
+            .bind(photo, ...devices).first("n");
+          // 'like' = gewenste stand (nieuwe site); zonder 'like' (oude versie in cache) = omschakelen
+          const want = typeof b.like === "boolean" ? b.like : has === 0;
+          if (want && !has) {
             await db.prepare("INSERT OR IGNORE INTO likes (photo, album, client, created) VALUES (?,?,?,?)")
               .bind(photo, album, client, now).run();
+          } else if (!want && has) {
+            await db.prepare(`DELETE FROM likes WHERE photo=? AND client IN (${inList(devices)})`).bind(photo, ...devices).run();
           }
-          const n = await db.prepare("SELECT COUNT(*) AS n FROM likes WHERE photo=?").bind(photo).first("n");
-          return json(200, { count: n, liked });
+          return json(200, { count: await photoCount(db, photo), liked: want, welcome: welcome ? me : "", name: me });
         }
 
         if (b.website) return json(200, { ok: true }); // honeypot voor spambots
-        const name = String(b.name || "").trim().slice(0, 40);
+        const name = cleanName(b.name);
         const text = String(b.text || "").trim().slice(0, 1000);
         if (!name || !text) return json(400, { error: "Vul je naam en een reactie in." });
         const recent = await db.prepare("SELECT COUNT(*) AS n FROM comments WHERE client=? AND created>?")
@@ -222,16 +255,16 @@ export default {
         if (req.method === "GET" && route === "/activity") {
           const since = Number(q.get("since")) || 0;
           const [l, c] = await db.batch([
-            db.prepare("SELECT COUNT(*) AS n FROM likes WHERE created>?").bind(since),
+            db.prepare(`SELECT COUNT(*) AS n FROM (SELECT DISTINCT l.photo, ${PERSON} FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.created>?)`).bind(since),
             db.prepare("SELECT COUNT(*) AS n FROM comments WHERE created>? AND hidden=0").bind(since),
           ]);
           return json(200, { likes: l.results[0].n, comments: c.results[0].n });
         }
         if (req.method === "GET" && route === "/overview") {
           const [l, c] = await db.batch([
-            db.prepare("SELECT l.album, COALESCE(c.name, 'Anoniem') AS wie, l.client, COUNT(*) AS likes, MAX(l.created) AS laatst, " +
-              "GROUP_CONCAT(substr(l.photo, instr(l.photo, '/') + 1)) AS fotos FROM likes l LEFT JOIN clients c ON c.client=l.client " +
-              "GROUP BY l.album, l.client ORDER BY laatst DESC"),
+            db.prepare("SELECT l.album, COALESCE(MAX(c.name), 'Anoniem') AS wie, MIN(l.client) AS client, COUNT(DISTINCT l.photo) AS likes, MAX(l.created) AS laatst, " +
+              "GROUP_CONCAT(DISTINCT substr(l.photo, instr(l.photo, '/') + 1)) AS fotos, COUNT(DISTINCT l.client) AS toestellen FROM likes l LEFT JOIN clients c ON c.client=l.client " +
+              `GROUP BY l.album, ${PERSON} ORDER BY laatst DESC`),
             db.prepare("SELECT id, photo, album, name, text, created FROM comments WHERE hidden=0 ORDER BY created DESC LIMIT 50"),
           ]);
           const albums = [...new Set([...l.results, ...c.results].map((r) => r.album))];
@@ -241,8 +274,8 @@ export default {
         }
         if (req.method === "GET" && route === "/likes") {
           const r = await db.prepare(
-            "SELECT l.album, COALESCE(c.name, 'anoniem (' || substr(l.client,1,6) || ')') AS wie, COUNT(*) AS likes, MAX(l.created) AS laatst " +
-            "FROM likes l LEFT JOIN clients c ON c.client=l.client GROUP BY l.album, l.client ORDER BY laatst DESC").all();
+            "SELECT l.album, COALESCE(MAX(c.name), 'anoniem (' || substr(MIN(l.client),1,6) || ')') AS wie, COUNT(DISTINCT l.photo) AS likes, " +
+            `COUNT(DISTINCT l.client) AS toestellen, MAX(l.created) AS laatst FROM likes l LEFT JOIN clients c ON c.client=l.client GROUP BY l.album, ${PERSON} ORDER BY laatst DESC`).all();
           return json(200, { likes: r.results });
         }
         if (req.method === "GET" && route === "/recent") {
