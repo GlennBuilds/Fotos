@@ -349,6 +349,8 @@ def build():
     write_home(site, base, albums)
     write_pwa(site, base)
     save_json(OUT / "albums.json", {x["slug"]: x["title"] for x in albums})  # gebruikt door worker voor meldingen
+    save_json(OUT / "fotonamen.json", {f"{x['slug']}/{p['id']}": p["sp"].get("nl") or p["sp"]["sci"]
+                                       for x in albums for p in x["photos"] if p.get("sp")})  # soortnamen in meldingen
     write_404(site, base)
     print(f"Gebouwd: {len(albums)} album(s) → {OUT}")
 

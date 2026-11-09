@@ -8,6 +8,7 @@
 //   DELETE /admin/comments/<id> (Authorization: Bearer ADMIN_KEY) -> verbergt reactie
 
 import { sendPush, b64u } from "./push.js";
+import { planDigests } from "./digest.js";
 
 const PHOTO_RE = /^[a-z0-9-]{1,80}\/[a-z0-9-]{1,40}$/;
 const ALBUM_RE = /^[a-z0-9-]{1,80}$/;
@@ -47,45 +48,46 @@ const photoUrl = (env, photo) => {
   return `${env.SITE_URL}album/${slug}/#${id}`;
 };
 
-// Gebundelde like-melding: draait elke 10 minuten via cron.
-async function likeDigest(env) {
+// Like-meldingen (cron elke 10 min): één melding per persoon per dag met de dagstand, zie digest.js.
+// Status in meta.likes_state = {base, people:{persoon: laatst gemelde like}}; oude meta.likes_notified dient als startpunt.
+let namesCache = null, namesCacheAt = 0;
+async function photoNames(env) {
+  try {
+    if (!namesCache || Date.now() - namesCacheAt > 3600000) {
+      const r = await fetch(env.SITE_URL + "fotonamen.json", { cf: { cacheTtl: 300 } });
+      namesCache = r.ok ? await r.json() : {};
+      namesCacheAt = Date.now();
+    }
+  } catch (e) { namesCache = namesCache || {}; }
+  return namesCache;
+}
+async function likeDigest(env, now = Date.now()) {
   const db = env.DB;
-  const stored = await db.prepare("SELECT value FROM meta WHERE key='likes_notified'").first("value");
-  const last = stored == null ? Date.now() - 600000 : Number(stored);
+  let state = null;
+  try { state = JSON.parse(await db.prepare("SELECT value FROM meta WHERE key='likes_state'").first("value")); } catch (e) { state = null; }
+  if (!state || typeof state !== "object" || !state.people) {
+    const old = await db.prepare("SELECT value FROM meta WHERE key='likes_notified'").first("value");
+    state = { base: old == null ? now - 600000 : Number(old), people: {} };
+  }
   const rows = (await db.prepare(
     "SELECT l.photo, l.album, l.client, c.name, l.created FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.created>? ORDER BY l.created")
-    .bind(last).all()).results;
-  if (!rows.length) return;
-  const newest = Math.max(...rows.map((r) => r.created));
+    .bind(now - 36 * 3600000).all()).results;
+  if (!rows.length) return [];
   const albums = [...new Set(rows.map((r) => r.album))];
-  const titles = await Promise.all(albums.map((a) => albumTitle(env, a)));
-  // per persoon (of per anoniem toestel)
-  const people = new Map();
-  let anon = 0;
-  for (const r of rows) {
-    const id = r.name ? `n:${r.name.trim().toLowerCase()}` : `c:${r.client}`;
-    if (!people.has(id)) people.set(id, { name: r.name || `iemand ${++anon > 1 ? anon : ""}`.trim(), photos: [] });
-    const pid = r.photo.split("/")[1];
-    if (!people.get(id).photos.includes(pid)) people.get(id).photos.push(pid);
+  const titles = Object.fromEntries(await Promise.all(albums.map(async (a) => [a, await albumTitle(env, a)])));
+  const plans = planDigests(rows, state, now, { titles, names: await photoNames(env), siteUrl: env.SITE_URL });
+  const results = [];
+  for (const m of plans) {
+    const res = await notify(env, { title: m.title, message: m.body, tag: m.tag, click: m.url });
+    // alleen als verstuurd: anders volgende ronde opnieuw proberen
+    if (res.status >= 200 && res.status < 300) state.people[m.key] = m.upTo;
+    results.push({ title: m.title, body: m.body, sent: res.sent });
   }
-  const lines = [...people.values()].map((p) => p.photos.length === 1
-    ? `${p.name}: foto ${p.photos[0]}`
-    : `${p.name}: ${p.photos.length} foto's`);
-  const single = people.size === 1 ? [...people.values()][0] : null;
-  const total = [...people.values()].reduce((a, p) => a + p.photos.length, 0);
-  const res = await notify(env, {
-    title: single
-      ? `❤️ ${single.name} vond ${total === 1 ? "een foto" : `${total} foto's`} leuk · ${titles.join(", ")}`
-      : `❤️ ${total} nieuwe likes · ${titles.join(", ")}`,
-    message: lines.join("\n"),
-    tag: "likes",
-    click: total === 1 ? photoUrl(env, rows[0].photo) : `${env.SITE_URL}album/${albums[0]}/`,
-  });
-  // alleen als verstuurd: anders volgende ronde opnieuw proberen
-  if (res.status >= 200 && res.status < 300) {
-    await db.prepare("INSERT INTO meta (key, value) VALUES ('likes_notified', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
-      .bind(String(newest)).run();
+  if (plans.length) {
+    await db.prepare("INSERT INTO meta (key, value) VALUES ('likes_state', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+      .bind(JSON.stringify(state)).run();
   }
+  return results;
 }
 const saveName = (db, client, name, now) =>
   db.prepare("INSERT INTO clients (client, name, updated) VALUES (?,?,?) ON CONFLICT(client) DO UPDATE SET name=excluded.name, updated=excluded.updated")
@@ -251,6 +253,21 @@ export default {
         }
         if (req.method === "POST" && (route === "/test" || route === "/test-notify")) {
           return json(200, await notify(env, { title: "✅ Meldingen staan aan", message: "Je krijgt nu een melding bij nieuwe likes en reacties.", click: env.SITE_URL, tag: "test" }));
+        }
+        // voorbeeld van de like-meldingen van vandaag (wijzigt de meldingsstatus niet); POST stuurt de laatste als melding
+        if (route === "/digest-preview" && (req.method === "GET" || req.method === "POST")) {
+          const rows = (await db.prepare(
+            "SELECT l.photo, l.album, l.client, c.name, l.created FROM likes l LEFT JOIN clients c ON c.client=l.client WHERE l.created>? ORDER BY l.created")
+            .bind(Date.now() - 36 * 3600000).all()).results;
+          const albums = [...new Set(rows.map((r) => r.album))];
+          const titles = Object.fromEntries(await Promise.all(albums.map(async (a) => [a, await albumTitle(env, a)])));
+          const plans = rows.length ? planDigests(rows, { base: 0, people: {} }, Date.now() + 6 * 60000,
+            { titles, names: await photoNames(env), siteUrl: env.SITE_URL }).sort((a, b) => b.upTo - a.upTo) : [];
+          if (req.method === "POST" && plans[0]) {
+            const m = plans[0];
+            return json(200, { plans, sent: await notify(env, { title: m.title, message: m.body, tag: m.tag, click: m.url }) });
+          }
+          return json(200, { plans });
         }
         if (req.method === "GET" && route === "/activity") {
           const since = Number(q.get("since")) || 0;
