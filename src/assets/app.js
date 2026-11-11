@@ -120,7 +120,7 @@
         <div class="lb-top"><button class="lb-btn lb-close" aria-label="Sluiten">${I.close}</button><div class="lb-title"></div><span class="lb-count"></span></div>
         <button class="lb-btn lb-nav lb-prev" aria-label="Vorige foto">${I.prev}</button>
         <button class="lb-btn lb-nav lb-next" aria-label="Volgende foto">${I.next}</button>
-        <figure class="lb-fig"><img class="lb-img" alt=""><div class="lb-pop">${I.heart}</div></figure>
+        <figure class="lb-fig"><div class="lb-track"></div><div class="lb-pop">${I.heart}</div></figure>
         <div class="lb-bar">
           <button class="lb-act like" aria-pressed="false" aria-label="Vind ik leuk">${I.heart}<span class="n">0</span></button>
           <button class="lb-act talk" aria-expanded="false" aria-label="Reacties">${I.talk}<span class="n">0</span></button>
@@ -154,7 +154,7 @@
       </div>`;
     document.body.append(lb);
     const el = {
-      img: $(".lb-img", lb), count: $(".lb-count", lb), prev: $(".lb-prev", lb), next: $(".lb-next", lb),
+      track: $(".lb-track", lb), count: $(".lb-count", lb), prev: $(".lb-prev", lb), next: $(".lb-next", lb),
       like: $(".like", lb), talk: $(".talk", lb), dl: $(".dl", lb), share: $(".share", lb), info: $(".info", lb),
       pop: $(".lb-pop", lb), exif: $(".lb-exif", lb), list: $(".lb-comments", lb), note: $(".lb-note", lb),
       form: $(".lb-form", lb), title: $(".lb-panel-head h2", lb), stage: $(".lb-stage", lb),
@@ -163,6 +163,32 @@
     el.form.elements.name.value = store.get("fa_name") || "";
 
     let cur = -1, pushed = false, lastFocus = null, panelMode = null;
+
+    // Schuifbaan zoals Foto's: alle foto's naast elkaar, de telefoon doet het vegen zelf (meeveren, uitlopen, vastklikken).
+    const GAP = 20;
+    el.track.innerHTML = photos.map((p, i) =>
+      `<div class="lb-slide"><img class="lb-img" alt="${escHtml(A.title)} — foto ${i + 1}" width="${p.w}" height="${p.h}" decoding="async" draggable="false"></div>`).join("");
+    const imgs = $$(".lb-img", el.track);
+    const step = () => el.track.clientWidth + GAP;
+    const indexAt = () => Math.max(0, Math.min(photos.length - 1, Math.round(el.track.scrollLeft / step())));
+    function loadAround(c) {
+      imgs.forEach((im, j) => {
+        const d = Math.abs(j - c), p = photos[j];
+        if (d <= 1) {
+          if (!im.dataset.s) { im.src = src(p, "sm"); im.dataset.s = "sm"; }
+          if (im.dataset.s === "sm") {
+            const big = new Image();
+            big.onload = () => { if (im.dataset.s === "lg-wait") { im.src = big.src; im.dataset.s = "lg"; } };
+            big.src = src(p, "lg");
+            im.dataset.s = "lg-wait";
+          }
+        } else if (d <= 3) {
+          if (!im.dataset.s) { im.src = src(p, "sm"); im.dataset.s = "sm"; }
+        } else if (im.dataset.s) {
+          im.removeAttribute("src"); delete im.dataset.s; // geheugen sparen
+        }
+      });
+    }
 
     function spName(sp) {
       if (sp.nl) return sp.nl.charAt(0).toUpperCase() + sp.nl.slice(1);
@@ -242,8 +268,9 @@
       } catch (e) { /* likes tijdelijk niet beschikbaar */ }
     }
 
-    function show(i, dir = 0) {
-      cur = (i + photos.length) % photos.length;
+    function show(i, jump = false) {
+      cur = Math.max(0, Math.min(photos.length - 1, i));
+      if (jump) el.track.scrollLeft = cur * step();
       const p = photos[cur];
       el.count.textContent = `${cur + 1} van ${photos.length}`;
       {
@@ -270,18 +297,8 @@
           (p.sp.url ? `<a href="${escHtml(p.sp.url)}" target="_blank" rel="noopener">Over deze soort op waarneming.nl ›</a>` : "");
       }
       el.prev.disabled = cur === 0; el.next.disabled = cur === photos.length - 1;
-      const small = src(p, "sm"), large = src(p, "lg");
-      el.img.style.transition = "none";
-      el.img.style.transform = dir ? `translateX(${dir * 56}px)` : "";
-      el.img.classList.add("fade");
-      el.img.src = small;
-      el.img.alt = `${A.title} — foto ${cur + 1}`;
-      el.img.width = p.w; el.img.height = p.h;
-      requestAnimationFrame(() => requestAnimationFrame(() => { el.img.style.transition = ""; el.img.style.transform = ""; el.img.classList.remove("fade"); }));
-      const big = new Image();
-      big.onload = () => { if (photos[cur] === p) el.img.src = large; };
-      big.src = large;
-      [photos[cur + 1], photos[cur - 1]].forEach((n) => { if (n) new Image().src = src(n, "lg"); });
+      const large = src(p, "lg");
+      loadAround(cur);
       el.dl.href = large;
       el.dl.setAttribute("download", `${A.dl}_${p.id}.jpg`);
       const ex = [];
@@ -294,8 +311,8 @@
       el.exif.innerHTML = ex.join("");
       paintActions();
       const hash = `#${p.id}`;
-      if (location.hash !== hash) history.replaceState(history.state, "", hash);
-      if (panelMode === "talk") loadComments();
+      if (location.hash !== hash) { try { history.replaceState(history.state, "", hash); } catch (e) { /* te vaak achter elkaar */ } }
+      if (panelMode === "talk") { clearTimeout(show.t); show.t = setTimeout(loadComments, 250); }
     }
 
     function open(i) {
@@ -306,7 +323,8 @@
       requestAnimationFrame(() => lb.classList.add("show"));
       const pref = store.get("fa_panel");
       if (pref && window.innerWidth > 820 && (pref === "info" || state.on)) setPanel(pref, false); else setPanel(null, false);
-      show(i);
+      lastW = el.track.clientWidth;
+      show(i, true);
       $(".lb-close", lb).focus({ preventScroll: true });
     }
     function close(fromPop = false) {
@@ -314,7 +332,7 @@
       lb.classList.remove("show");
       document.documentElement.classList.remove("lb-open");
       const t = tiles.get(photos[cur].id);
-      setTimeout(() => { lb.hidden = true; el.img.removeAttribute("src"); }, 200);
+      setTimeout(() => { lb.hidden = true; imgs.forEach((im) => { im.removeAttribute("src"); delete im.dataset.s; }); }, 200);
       if (!fromPop && pushed) { pushed = false; history.back(); }
       else if (!fromPop) history.replaceState(null, "", location.pathname + location.search);
       pushed = false;
@@ -425,9 +443,16 @@
     }));
     $(".lb-close", lb).addEventListener("click", () => close());
     $(".lb-pclose", lb).addEventListener("click", () => setPanel(null));
-    const canGo = (dir) => cur + dir >= 0 && cur + dir < photos.length;
-    el.prev.addEventListener("click", () => canGo(-1) && show(cur - 1, -1));
-    el.next.addEventListener("click", () => canGo(1) && show(cur + 1, 1));
+    // pijlen/toetsen: soepel naar de volgende foto schuiven (snel achter elkaar klikken telt op)
+    let want = null, wantT = 0;
+    function go(dir) {
+      const from = want ?? cur, to = Math.max(0, Math.min(photos.length - 1, from + dir));
+      if (to === from) return;
+      want = to; clearTimeout(wantT); wantT = setTimeout(() => (want = null), 700);
+      el.track.scrollTo({ left: to * step(), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
+    el.prev.addEventListener("click", () => go(-1));
+    el.next.addEventListener("click", () => go(1));
     el.like.addEventListener("click", () => toggleLike());
     el.talk.addEventListener("click", () => setPanel(panelMode === "talk" ? null : "talk"));
     el.info.addEventListener("click", () => setPanel(panelMode === "info" ? null : "info"));
@@ -436,54 +461,47 @@
       if (navigator.share) { try { await navigator.share({ title: A.title, url }); } catch (e) { /* geannuleerd */ } return; }
       try { await navigator.clipboard.writeText(url); toast("Link gekopieerd"); } catch (e) { prompt("Kopieer de link:", url); }
     });
-    el.img.addEventListener("dblclick", () => toggleLike(true));
-    let lastTap = 0;
-    el.img.addEventListener("touchend", (e) => {
+    // tijdens het schuiven de huidige foto bijhouden
+    let lastW = 0, lastTap = 0;
+    el.track.addEventListener("scroll", () => {
+      lastTap = 0;
+      if (lb.hidden) return;
+      const i = indexAt();
+      if (i !== cur) show(i);
+    }, { passive: true });
+    // breedte verandert (draaien, paneel op desktop): op dezelfde foto blijven
+    if ("ResizeObserver" in window) new ResizeObserver(() => {
+      const w = el.track.clientWidth;
+      if (!lb.hidden && w && w !== lastW) { lastW = w; el.track.scrollLeft = cur * step(); }
+    }).observe(el.track);
+
+    // dubbeltik/dubbelklik = vind ik leuk
+    el.track.addEventListener("dblclick", (e) => { if (e.target.closest(".lb-img")) toggleLike(true); });
+    el.track.addEventListener("touchend", (e) => {
+      if (e.changedTouches.length !== 1 || !e.target.closest(".lb-img")) return;
       const now = Date.now();
       if (now - lastTap < 300) { e.preventDefault(); toggleLike(true); lastTap = 0; } else lastTap = now;
     });
 
-    // vegen: de foto beweegt mee met je vinger; loslaten voorbij de drempel = volgende/vorige
-    let sx = 0, sy = 0, st = 0, multi = false, drag = false;
+    // omlaag vegen = sluiten (opzij vegen doet de schuifbaan zelf)
+    let sx = 0, sy = 0, st = 0, multi = false;
     const zoomed = () => window.visualViewport && window.visualViewport.scale > 1.01;
-    const snapBack = () => { drag = false; el.img.style.transition = ""; el.img.style.transform = ""; };
     el.stage.addEventListener("touchstart", (e) => {
-      multi = e.touches.length > 1; if (multi) { snapBack(); return; }
-      sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); drag = false;
-    }, { passive: true });
-    el.stage.addEventListener("touchmove", (e) => {
-      if (multi || e.touches.length > 1 || zoomed()) return;
-      const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
-      if (!drag && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.3) drag = true;
-      if (!drag) return;
-      el.img.style.transition = "none";
-      el.img.style.transform = `translateX(${canGo(dx < 0 ? 1 : -1) ? dx : dx * 0.25}px)`;
+      multi = e.touches.length > 1; if (multi) return;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
     }, { passive: true });
     el.stage.addEventListener("touchend", (e) => {
-      if (multi || zoomed()) { snapBack(); return; }
-      const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy, dt = Date.now() - st;
-      const dir = dx < 0 ? 1 : -1;
-      const swipe = Math.abs(dx) > Math.abs(dy) * 1.3 && (Math.abs(dx) > 80 || (dt < 350 && Math.abs(dx) > 40));
-      if (swipe && canGo(dir)) {
-        const target = cur + dir;
-        drag = false;
-        el.img.style.transition = "transform .14s ease-in, opacity .14s";
-        el.img.style.transform = `translateX(${-dir * 45}vw)`;
-        el.img.classList.add("fade");
-        setTimeout(() => { if (!lb.hidden) show(target, dir); }, 130);
-        return;
-      }
-      snapBack();
-      if (dt < 800 && dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5 && e.target.closest(".lb-fig")) close();
+      if (multi || zoomed()) return;
+      const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Date.now() - st < 800 && dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5 && e.target.closest(".lb-fig")) close();
     }, { passive: true });
-    el.stage.addEventListener("touchcancel", snapBack, { passive: true });
 
     document.addEventListener("keydown", (e) => {
       if (lb.hidden) return;
       if (!ask.hidden) { if (e.key === "Escape") $(".skip", ask).click(); return; }
       if (e.target.closest("input, textarea")) return;
-      if (e.key === "ArrowRight") el.next.click();
-      else if (e.key === "ArrowLeft") el.prev.click();
+      if (e.key === "ArrowRight") go(1);
+      else if (e.key === "ArrowLeft") go(-1);
       else if (e.key === "Escape") { panelMode && window.innerWidth <= 820 ? setPanel(null) : close(); }
       else if (e.key.toLowerCase() === "l") toggleLike();
     });
