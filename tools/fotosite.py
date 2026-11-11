@@ -320,6 +320,8 @@ def build():
                 p["sp"] = dets[p["id"]]
             elif same.get(p["id"]) in dets:
                 p["sp"] = {**dets[same[p["id"]]], "via": same[p["id"]]}
+            if p.get("sp", {}).get("verborgen"):
+                p.pop("sp")
         first, last = album_meta(a, photos)
         cover = pick_cover(a, photos)
         albums.append({**a, "photos": photos, "first": first, "last": last, "cover_p": cover,
@@ -460,7 +462,7 @@ def write_album(site, base, a, newer, older):
         return (f'<a class="nav-card" href="{root}album/{x["slug"]}/"><img src="{root}img/{x["slug"]}/{c["id"]}-sm.jpg" alt="" loading="lazy">'
                 f'<span><small>{label}</small><b>{esc(x["title"])}</b><em>{esc(x["date_label"])}</em></span></a>')
 
-    nsp = len({p["sp"]["sci"] for p in photos if p.get("sp")})
+    nsp = len({p["sp"]["sci"] for p in photos if p.get("sp") and p["sp"].get("niveau", "Soort") in ("Soort", "Soortgroep")})
     sub = " · ".join(x for x in [a.get("place"), a["date_label"], f"{len(photos)} foto's", f"{nsp} soorten" if nsp else ""] if x)
     desc = f'<p class="lead">{esc(a["description"])}</p>' if a.get("description") else ""
     body = f"""{header(site, root, back=True)}
@@ -567,7 +569,57 @@ def lookup_species(sci):
     return {"nl": nl, "url": hit.get("permalink", ""), "group": hit.get("group_name", "")}
 
 
+def cmd_determinaties_inat(args):
+    """iNaturalist-lijst (tab-gescheiden): Foto | Wetenschappelijke naam | Nederlandse naam | Status iNaturalist.
+    Foto mag een reeks zijn (15-17). Vervangt de namen; 'zelfde_vondst' blijft staan."""
+    path = DETS / f"{args.slug}.json"
+    out = load_json(path, {"bron": "", "fotos": {}})
+    old = out.get("fotos", {})
+    fotos, n = {}, 0
+    levels = {"geslacht": "Geslacht", "familie": "Familie", "orde": "Orde", "klasse": "Klasse"}
+    for line in Path(args.xlsx).read_text(encoding="utf-8").splitlines():
+        cols = [c.strip() for c in line.split("\t")]
+        if len(cols) < 4 or not re.match(r"^\d+(-\d+)?$", cols[0]):
+            continue
+        rng, sci, nl, status = cols[:4]
+        a, _, b = rng.partition("-")
+        ids = [str(i) for i in range(int(a), int(b or a) + 1)]
+        niveau = "Soort"
+        m = re.match(r"^(.*?)\s*\((\w+)\)$", sci)
+        if m and m.group(2).lower() in levels:
+            sci, niveau = m.group(1), levels[m.group(2).lower()]
+        elif m:  # bv. "Spinnenweb (Araneae)": geen soort, alleen een groep
+            sci, niveau = m.group(2), "Groep"
+        elif " sectie " in sci:
+            niveau = "Sectie"
+        nl = "" if nl in ("-", "–") else nl
+        removed = status.lower().startswith("verwijderd")
+        url = ""
+        if niveau == "Soort" and not removed:
+            prev = old.get(ids[0], {})
+            if prev.get("url") and prev.get("niveau") in ("Soort", "Soortgroep"):
+                url = prev["url"]  # zelfde vondst, zelfde soortpagina (ook als de wetenschappelijke naam vernieuwd is)
+            else:
+                url = lookup_species(sci).get("url", "")
+        for pid in ids:
+            fotos[pid] = {"sci": sci, "nl": nl, "url": url, "niveau": niveau, "bron": "iNaturalist", "status": status,
+                          "zeker": status.lower() == "research grade"}
+            if removed:
+                fotos[pid]["verborgen"] = True
+            n += 1
+            print(f"  foto {pid}: {nl or sci} ({niveau}, {status}){'' if url or niveau != 'Soort' or removed else ' – geen soortpagina gevonden'}")
+    gone = sorted(set(old) - set(fotos), key=int)
+    if gone:
+        print(f"  niet meer in de lijst, naam vervalt: {', '.join(gone)}")
+    out["bron"] = f"iNaturalist ({Path(args.xlsx).name})"
+    out["fotos"] = fotos
+    save_json(path, out)
+    print(f"{n} determinaties opgeslagen voor {args.slug}")
+
+
 def cmd_determinaties(args):
+    if not str(args.xlsx).lower().endswith((".xlsx", ".xlsm")):
+        return cmd_determinaties_inat(args)
     import openpyxl
     wb = openpyxl.load_workbook(args.xlsx, data_only=True)
     ws = wb["Determinaties"] if "Determinaties" in wb.sheetnames else wb.worksheets[0]

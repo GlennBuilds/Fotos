@@ -1,11 +1,13 @@
 {
-  "bron": "2026-11-07_Determinatieoverzicht_Wielewaal.xlsx",
+  "bron": "iNaturalist (2026-11-07-paddestoelen-wielewaal.inaturalist.tsv)",
   "fotos": {
     "1": {
       "sci": "Leratiomyces ceres",
       "nl": "Oranjerode stropharia",
       "url": "https://waarneming.nl/species/673349/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Research Grade",
       "zeker": true
     },
     "2": {
@@ -13,34 +15,44 @@
       "nl": "Fraaisteelmycena",
       "url": "https://waarneming.nl/species/15126/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "3": {
       "sci": "Russula caerulea",
       "nl": "Papilrussula",
       "url": "https://waarneming.nl/species/673659/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "7": {
-      "sci": "Chlorophyllum rhacodes sl, incl. brunneum, olivieri",
+      "sci": "Chlorophyllum rhacodes",
       "nl": "Gewone knolparasolzwam",
       "url": "https://waarneming.nl/species/672882/",
-      "niveau": "Soortgroep",
+      "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "10": {
-      "sci": "Lepista flaccida",
+      "sci": "Paralepista flaccida",
       "nl": "Roodbruine schijnridderzwam",
       "url": "https://waarneming.nl/species/15496/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "11": {
-      "sci": "Laccaria laccata",
-      "nl": "Gewone fopzwam",
-      "url": "https://waarneming.nl/species/15189/",
-      "niveau": "Soort",
+      "sci": "Laccaria",
+      "nl": "Fopzwam",
+      "url": "",
+      "niveau": "Geslacht",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "13": {
@@ -48,13 +60,44 @@
       "nl": "Rupsendoder",
       "url": "https://waarneming.nl/species/16371/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Research Grade",
       "zeker": true
     },
     "14": {
-      "sci": "Calocera spec.",
-      "nl": "",
+      "sci": "Calocera viscosa",
+      "nl": "Kleverig koraalzwammetje",
+      "url": "https://waarneming.nl/species/16543/",
+      "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
+    },
+    "15": {
+      "sci": "Agaricales",
+      "nl": "Plaatjeszwammen",
       "url": "",
-      "niveau": "Geslacht",
+      "niveau": "Orde",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
+      "zeker": false
+    },
+    "16": {
+      "sci": "Agaricales",
+      "nl": "Plaatjeszwammen",
+      "url": "",
+      "niveau": "Orde",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
+      "zeker": false
+    },
+    "17": {
+      "sci": "Agaricales",
+      "nl": "Plaatjeszwammen",
+      "url": "",
+      "niveau": "Orde",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "18": {
@@ -62,13 +105,17 @@
       "nl": "Spitse vlekplaat",
       "url": "https://waarneming.nl/species/15558/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "21": {
-      "sci": "Agaricus spec.",
-      "nl": "",
+      "sci": "Agaricus",
+      "nl": "Champignon",
       "url": "",
       "niveau": "Geslacht",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "23": {
@@ -76,20 +123,26 @@
       "nl": "Echte honingzwam",
       "url": "https://waarneming.nl/species/15110/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "24": {
-      "sci": "Mycena spec.",
-      "nl": "",
+      "sci": "Mycena",
+      "nl": "Mycena",
       "url": "",
       "niveau": "Geslacht",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "27": {
-      "sci": "Coprinellus micaceus",
-      "nl": "Gewone glimmerinktzwam",
-      "url": "https://waarneming.nl/species/672948/",
-      "niveau": "Soort",
+      "sci": "Psathyrellaceae",
+      "nl": "",
+      "url": "",
+      "niveau": "Familie",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "28": {
@@ -97,6 +150,8 @@
       "nl": "Vliegenzwam",
       "url": "https://waarneming.nl/species/15649/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Research Grade",
       "zeker": true
     },
     "32": {
@@ -104,6 +159,8 @@
       "nl": "Grote stinkzwam",
       "url": "https://waarneming.nl/species/673527/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Research Grade",
       "zeker": true
     },
     "33": {
@@ -111,76 +168,99 @@
       "nl": "Nevelzwam",
       "url": "https://waarneming.nl/species/15410/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "34": {
       "sci": "Armillaria ostoyae",
       "nl": "Sombere honingzwam",
       "url": "https://waarneming.nl/species/15547/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "35": {
       "sci": "Trametes gibbosa",
       "nl": "Witte bultzwam",
       "url": "https://waarneming.nl/species/15994/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "37": {
       "sci": "Trametes versicolor",
       "nl": "Gewoon elfenbankje",
       "url": "https://waarneming.nl/species/15821/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "38": {
       "sci": "Hypholoma fasciculare",
       "nl": "Gewone zwavelkop",
-      "url": "https://waarneming.nl/species/80785/",
+      "url": "",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Verwijderd van iNaturalist",
+      "zeker": false,
+      "verborgen": true
     },
     "39": {
       "sci": "Argiope bruennichi",
-      "nl": "Wespspin",
+      "nl": "Wespenspin",
       "url": "https://waarneming.nl/species/1729/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Research Grade",
       "zeker": true
     },
     "41": {
-      "sci": "Filipendula spec.",
-      "nl": "",
-      "url": "",
-      "niveau": "Geslacht",
+      "sci": "Scirpus cyperinus",
+      "nl": "Wollige bosbies",
+      "url": "https://waarneming.nl/species/320360/",
+      "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "43": {
-      "sci": "Plicaturopsis crispa",
+      "sci": "Plicatura crispa",
       "nl": "Plooivlieswaaiertje",
       "url": "https://waarneming.nl/species/14270/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "48": {
       "sci": "Tremella mesenterica",
       "nl": "Gele trilzwam",
       "url": "https://waarneming.nl/species/16528/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "50": {
       "sci": "Laccaria proxima",
       "nl": "Schubbige fopzwam",
       "url": "https://waarneming.nl/species/15521/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "55": {
-      "sci": "Coprinopsis spec.",
+      "sci": "Coprinopsis sectie Lanatulae",
       "nl": "",
       "url": "",
-      "niveau": "Geslacht",
+      "niveau": "Sectie",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "56": {
@@ -188,13 +268,17 @@
       "nl": "Grote oranje bekerzwam",
       "url": "https://waarneming.nl/species/16203/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Research Grade",
       "zeker": true
     },
     "61": {
-      "sci": "Ascocoryne sarcoides sl, incl. cylichnium",
-      "nl": "Paarse knoopzwam",
-      "url": "https://waarneming.nl/species/16328/",
-      "niveau": "Soortgroep",
+      "sci": "Ascocoryne",
+      "nl": "Knoopzwam",
+      "url": "",
+      "niveau": "Geslacht",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "62": {
@@ -202,13 +286,26 @@
       "nl": "Waaiertje",
       "url": "https://waarneming.nl/species/13776/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
+    },
+    "64": {
+      "sci": "Oudemansiella mucida",
+      "nl": "Porseleinzwam",
+      "url": "https://waarneming.nl/species/15467/",
+      "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "65": {
-      "sci": "Leccinum scabrum sl, incl. cyaneobasileucum, melaneum, schistophilum, variicolor",
-      "nl": "Gewone berkenboleet",
+      "sci": "Leccinum scabrum",
+      "nl": "Berkenboleet",
       "url": "https://waarneming.nl/species/15185/",
-      "niveau": "Soortgroep",
+      "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "67": {
@@ -216,20 +313,54 @@
       "nl": "Roodporiehoutzwam",
       "url": "https://waarneming.nl/species/15931/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "77": {
       "sci": "Clavulina cinerea",
       "nl": "Asgrauwe koraalzwam",
       "url": "https://waarneming.nl/species/15737/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     },
     "78": {
-      "sci": "Postia guttulata",
+      "sci": "Calcipostia guttulata",
       "nl": "Zwetende kaaszwam",
       "url": "https://waarneming.nl/species/673573/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
+      "zeker": false
+    },
+    "79": {
+      "sci": "Araneae",
+      "nl": "",
+      "url": "",
+      "niveau": "Groep",
+      "bron": "iNaturalist",
+      "status": "Verwijderd van iNaturalist",
+      "zeker": false,
+      "verborgen": true
+    },
+    "80": {
+      "sci": "Hygrophorus pustulatus",
+      "nl": "Stippelsteelslijmkop",
+      "url": "https://waarneming.nl/species/14537/",
+      "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
+      "zeker": false
+    },
+    "81": {
+      "sci": "Hygrophorus pustulatus",
+      "nl": "Stippelsteelslijmkop",
+      "url": "https://waarneming.nl/species/14537/",
+      "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Needs ID",
       "zeker": false
     },
     "82": {
@@ -237,14 +368,18 @@
       "nl": "Grote sponszwam",
       "url": "https://waarneming.nl/species/15847/",
       "niveau": "Soort",
+      "bron": "iNaturalist",
+      "status": "Research Grade",
       "zeker": true
     },
     "84": {
-      "sci": "Lycoperdon pyriforme",
+      "sci": "Apioperdon pyriforme",
       "nl": "Peervormige stuifzwam",
       "url": "https://waarneming.nl/species/16500/",
       "niveau": "Soort",
-      "zeker": false
+      "bron": "iNaturalist",
+      "status": "Research Grade",
+      "zeker": true
     }
   },
   "zelfde_vondst": {

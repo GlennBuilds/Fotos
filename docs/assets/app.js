@@ -252,11 +252,14 @@
       spBox.hidden = !p.sp;
       if (p.sp) {
         const lvl = (p.sp.niveau || "").toLowerCase();
-        const kind = lvl === "geslacht" ? "Geslacht" : lvl === "soortgroep" ? "Soortgroep" : "Soort";
+        const kind = { geslacht: "Geslacht", soortgroep: "Soortgroep", familie: "Familie", orde: "Orde", sectie: "Sectie", groep: "Groep" }[lvl] || "Soort";
+        const how = p.sp.bron === "iNaturalist"
+          ? (p.sp.zeker ? "bevestigd op iNaturalist" : "nog niet bevestigd op iNaturalist")
+          : `${p.sp.zeker ? "zeker" : "onzeker"} gedetermineerd op waarneming.nl`;
         const sci = p.sp.sci.replace(/\s+sl,?\s*incl\..*$/i, " s.l.");
         spBox.innerHTML = `<b>${escHtml(spName(p.sp))}</b>` +
           (p.sp.nl ? `<i>${escHtml(sci)}</i>` : "") +
-          `<span>${kind} · ${p.sp.zeker ? "zeker" : "onzeker"} gedetermineerd op waarneming.nl` +
+          `<span>${kind} · ${how}` +
           (p.sp.via ? (photos.some((x) => x.id === p.sp.via) ? ` (via <a class="via" href="#${escHtml(p.sp.via)}">een andere foto van deze vondst</a>)` : " (via een andere foto van deze vondst)") : "") + `</span>` +
           (p.sp.url ? `<a href="${escHtml(p.sp.url)}" target="_blank" rel="noopener">Over deze soort op waarneming.nl ›</a>` : "");
       }
