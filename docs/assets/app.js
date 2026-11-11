@@ -11,6 +11,39 @@
   const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
   const API = (LOCAL ? "/api" : (SITE.api || "")).replace(/\/$/, "");
 
+  // Nieuwere versie van de site online? Dan meteen verversen. (GitHub bewaart pagina's anders tot 10 minuten.)
+  function checkVersion(script) {
+    try {
+      const u = new URL(location.href);
+      if (u.searchParams.has("v")) { u.searchParams.delete("v"); history.replaceState(history.state, "", u.pathname + u.search + u.hash); }
+    } catch (e) { /* */ }
+    const me = SITE.v || "", s = document.querySelector(`script[src*="assets/${script}"]`);
+    if (!me || !s || ["localhost", "127.0.0.1"].includes(location.hostname)) return;
+    const url = new URL("../versie.json", s.src).href;
+    let busy = false;
+    const run = () => {
+      if (busy || document.hidden) return;
+      busy = true;
+      fetch(`${url}?t=${Date.now()}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          busy = false;
+          if (!d || !d.v || d.v <= me) return;
+          if (document.documentElement.classList.contains("lb-open") || [...document.querySelectorAll("textarea, input")].some((x) => x.value && x.type !== "hidden" && x.name !== "website" && x.name !== "name")) return; // niet midden in iets
+          let tried = "";
+          try { tried = sessionStorage.getItem("fa_v") || ""; sessionStorage.setItem("fa_v", d.v); } catch (e) { /* */ }
+          if (tried === d.v) return; // al één keer geprobeerd: niet blijven herladen
+          const next = new URL(location.href);
+          next.searchParams.set("v", d.v);
+          location.replace(next.href);
+        })
+        .catch(() => { busy = false; });
+    };
+    run();
+    document.addEventListener("visibilitychange", run);
+  }
+  checkVersion("app.js");
+
   const clientId = (() => {
     let id = store.get("fa_client");
     if (!id) {

@@ -259,7 +259,7 @@ def page(site, *, title, description, og_image, url, root, body_class, body, dat
 </head>
 <body class="{body_class}">
 {body}
-<script type="application/json" id="site-data">{json.dumps({"api": site.get("api", ""), "title": site["title"], "owner": site["owner"], "vapid": site.get("vapid", "")}, ensure_ascii=False)}</script>
+<script type="application/json" id="site-data">{json.dumps({"api": site.get("api", ""), "title": site["title"], "owner": site["owner"], "vapid": site.get("vapid", ""), "v": site.get("_v", "")}, ensure_ascii=False)}</script>
 <script type="application/json" id="page-data">{data_json}</script>
 <script src="{root}assets/{script}?v={site['_v']}" defer></script>
 </body>
@@ -352,6 +352,7 @@ def build():
     write_home(site, base, albums)
     write_pwa(site, base)
     save_json(OUT / "albums.json", {x["slug"]: x["title"] for x in albums})  # gebruikt door worker voor meldingen
+    save_json(OUT / "versie.json", {"v": site["_v"]})  # pagina's verversen zichzelf als er een nieuwere versie is
     save_json(OUT / "fotonamen.json", {f"{x['slug']}/{p['id']}": p["sp"].get("nl") or p["sp"]["sci"]
                                        for x in albums for p in x["photos"] if p.get("sp")})  # soortnamen in meldingen
     write_404(site, base)
