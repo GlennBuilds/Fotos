@@ -267,11 +267,12 @@ def page(site, *, title, description, og_image, url, root, body_class, body, dat
 """
 
 
-def header(site, root, back=False):
+def header(site, root, back=False, title=""):
     if back:
+        mid = f'\n    <span class="top-title" aria-hidden="true">{esc(title)}</span>' if title else ""
         return f"""<header class="topbar">
   <div class="wrap topbar-in">
-    <a class="back" href="{root}">{ICON["chev"]}<span>Albums</span></a>
+    <a class="back" href="{root}">{ICON["chev"]}<span>Albums</span></a>{mid}
   </div>
 </header>"""
     return f"""<header class="topbar">
@@ -465,7 +466,7 @@ def write_album(site, base, a, newer, older):
     nsp = len({p["sp"]["sci"] for p in photos if p.get("sp") and p["sp"].get("niveau", "Soort") in ("Soort", "Soortgroep")})
     sub = " · ".join(x for x in [a.get("place"), a["date_label"], f"{len(photos)} foto's", f"{nsp} soorten" if nsp else ""] if x)
     desc = f'<p class="lead">{esc(a["description"])}</p>' if a.get("description") else ""
-    body = f"""{header(site, root, back=True)}
+    body = f"""{header(site, root, back=True, title=a["title"])}
 <main class="wrap album">
   <header class="album-head">
     <h1>{esc(a['title'])}</h1>

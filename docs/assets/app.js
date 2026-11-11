@@ -105,6 +105,12 @@
     const state = { likes: {}, comments: {}, mine: new Set(), on: !!API };
     const tiles = new Map($$(".tile").map((t) => [t.dataset.id, t]));
 
+    /* albumtitel in de menubalk zodra de grote titel uit beeld is */
+    const bigTitle = $(".album-head h1"), topbar = $(".topbar");
+    if (bigTitle && topbar && "IntersectionObserver" in window) {
+      new IntersectionObserver(([e]) => topbar.classList.toggle("scrolled", !e.isIntersecting), { rootMargin: "-56px 0px 0px 0px" }).observe(bigTitle);
+    }
+
     /* lightbox opbouwen */
     const lb = document.createElement("div");
     lb.className = "lb"; lb.hidden = true;
@@ -265,11 +271,13 @@
       }
       el.prev.disabled = cur === 0; el.next.disabled = cur === photos.length - 1;
       const small = src(p, "sm"), large = src(p, "lg");
+      el.img.style.transition = "none";
+      el.img.style.transform = dir ? `translateX(${dir * 56}px)` : "";
       el.img.classList.add("fade");
       el.img.src = small;
       el.img.alt = `${A.title} — foto ${cur + 1}`;
       el.img.width = p.w; el.img.height = p.h;
-      requestAnimationFrame(() => el.img.classList.remove("fade"));
+      requestAnimationFrame(() => requestAnimationFrame(() => { el.img.style.transition = ""; el.img.style.transform = ""; el.img.classList.remove("fade"); }));
       const big = new Image();
       big.onload = () => { if (photos[cur] === p) el.img.src = large; };
       big.src = large;
@@ -316,6 +324,7 @@
     function setPanel(mode, remember = true) {
       panelMode = mode;
       lb.classList.toggle("panel-open", !!mode);
+      lb.classList.toggle("mode-talk", mode === "talk");
       el.talk.setAttribute("aria-expanded", String(mode === "talk"));
       el.info.setAttribute("aria-expanded", String(mode === "info"));
       const talk = mode === "talk";
@@ -416,8 +425,9 @@
     }));
     $(".lb-close", lb).addEventListener("click", () => close());
     $(".lb-pclose", lb).addEventListener("click", () => setPanel(null));
-    el.prev.addEventListener("click", () => cur > 0 && show(cur - 1));
-    el.next.addEventListener("click", () => cur < photos.length - 1 && show(cur + 1));
+    const canGo = (dir) => cur + dir >= 0 && cur + dir < photos.length;
+    el.prev.addEventListener("click", () => canGo(-1) && show(cur - 1, -1));
+    el.next.addEventListener("click", () => canGo(1) && show(cur + 1, 1));
     el.like.addEventListener("click", () => toggleLike());
     el.talk.addEventListener("click", () => setPanel(panelMode === "talk" ? null : "talk"));
     el.info.addEventListener("click", () => setPanel(panelMode === "info" ? null : "info"));
@@ -433,18 +443,40 @@
       if (now - lastTap < 300) { e.preventDefault(); toggleLike(true); lastTap = 0; } else lastTap = now;
     });
 
-    let sx = 0, sy = 0, st = 0, multi = false;
+    // vegen: de foto beweegt mee met je vinger; loslaten voorbij de drempel = volgende/vorige
+    let sx = 0, sy = 0, st = 0, multi = false, drag = false;
+    const zoomed = () => window.visualViewport && window.visualViewport.scale > 1.01;
+    const snapBack = () => { drag = false; el.img.style.transition = ""; el.img.style.transform = ""; };
     el.stage.addEventListener("touchstart", (e) => {
-      multi = e.touches.length > 1; if (multi) return;
-      sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+      multi = e.touches.length > 1; if (multi) { snapBack(); return; }
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); drag = false;
+    }, { passive: true });
+    el.stage.addEventListener("touchmove", (e) => {
+      if (multi || e.touches.length > 1 || zoomed()) return;
+      const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
+      if (!drag && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.3) drag = true;
+      if (!drag) return;
+      el.img.style.transition = "none";
+      el.img.style.transform = `translateX(${canGo(dx < 0 ? 1 : -1) ? dx : dx * 0.25}px)`;
     }, { passive: true });
     el.stage.addEventListener("touchend", (e) => {
-      if (multi || (window.visualViewport && window.visualViewport.scale > 1.01)) return;
-      const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
-      if (Date.now() - st > 800) return;
-      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3) { dx < 0 ? el.next.click() : el.prev.click(); }
-      else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5 && e.target.closest(".lb-fig")) close();
+      if (multi || zoomed()) { snapBack(); return; }
+      const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy, dt = Date.now() - st;
+      const dir = dx < 0 ? 1 : -1;
+      const swipe = Math.abs(dx) > Math.abs(dy) * 1.3 && (Math.abs(dx) > 80 || (dt < 350 && Math.abs(dx) > 40));
+      if (swipe && canGo(dir)) {
+        const target = cur + dir;
+        drag = false;
+        el.img.style.transition = "transform .14s ease-in, opacity .14s";
+        el.img.style.transform = `translateX(${-dir * 45}vw)`;
+        el.img.classList.add("fade");
+        setTimeout(() => { if (!lb.hidden) show(target, dir); }, 130);
+        return;
+      }
+      snapBack();
+      if (dt < 800 && dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5 && e.target.closest(".lb-fig")) close();
     }, { passive: true });
+    el.stage.addEventListener("touchcancel", snapBack, { passive: true });
 
     document.addEventListener("keydown", (e) => {
       if (lb.hidden) return;
